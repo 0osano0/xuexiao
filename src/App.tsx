@@ -1517,6 +1517,8 @@ export default function App() {
 
     initAuth();
 
+    document.title = '漳州正兴学校';
+
     // Hidden admin route check
     const path = window.location.pathname;
     if (path === '/guanli' || path === '/guanli.php') {
