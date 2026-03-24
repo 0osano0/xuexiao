@@ -43,17 +43,10 @@ import {
   Timestamp,
   where,
   getDoc,
-  setDoc
+  setDoc,
+  limit
 } from 'firebase/firestore';
-import { 
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  GoogleAuthProvider,
-  onAuthStateChanged, 
-  signOut,
-  User
-} from 'firebase/auth';
-import { db, auth } from './firebase';
+import { db } from './firebase';
 import ReactMarkdown from 'react-markdown';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -86,6 +79,7 @@ interface AppUser {
   uid: string;
   username: string;
   displayName: string;
+  password?: string;
   role: 'admin' | 'editor';
   createdAt: Timestamp;
 }
@@ -797,7 +791,6 @@ const ArticleDetail = ({ article, onBack }: { article: Article; onBack: () => vo
 export default function App() {
   const [view, setView] = useState<'home' | 'admin' | 'article'>('home');
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
-  const [user, setUser] = useState<User | null>(null);
   const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   
@@ -805,44 +798,53 @@ export default function App() {
   const [loginLoading, setLoginLoading] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-        if (userDoc.exists()) {
-          setAppUser({ uid: currentUser.uid, ...userDoc.data() } as AppUser);
-        } else {
-          // Check if this is the bootstrap admin (uldgxk@gmail.com)
-          if (currentUser.email === ADMIN_EMAIL) {
-            const bootstrapUser: AppUser = {
-              uid: currentUser.uid,
-              username: 'admin',
-              displayName: '超级管理员',
-              role: 'admin',
-              createdAt: Timestamp.now()
-            };
-            await setDoc(doc(db, 'users', currentUser.uid), {
-              username: bootstrapUser.username,
-              displayName: bootstrapUser.displayName,
-              role: bootstrapUser.role,
-              createdAt: bootstrapUser.createdAt
-            });
-            setAppUser(bootstrapUser);
+    const initAuth = async () => {
+      // 1. Check local storage for session
+      const savedUser = localStorage.getItem('zx_admin_session');
+      if (savedUser) {
+        try {
+          const userData = JSON.parse(savedUser);
+          // Verify user still exists in DB
+          const userDoc = await getDoc(doc(db, 'users', userData.uid));
+          if (userDoc.exists()) {
+            setAppUser({ uid: userDoc.id, ...userDoc.data() } as AppUser);
+          } else {
+            localStorage.removeItem('zx_admin_session');
           }
+        } catch (e) {
+          localStorage.removeItem('zx_admin_session');
         }
-      } else {
-        setAppUser(null);
       }
+
+      // 2. Bootstrap default admin if no users exist
+      try {
+        const userSnapshot = await getDocs(query(collection(db, 'users'), limit(1)));
+        if (userSnapshot.empty) {
+          console.log('Initializing default admin account...');
+          const adminRef = doc(collection(db, 'users'));
+          const defaultAdmin = {
+            username: 'admin',
+            password: 'admin',
+            displayName: '系统管理员',
+            role: 'admin',
+            createdAt: Timestamp.now()
+          };
+          await setDoc(adminRef, defaultAdmin);
+        }
+      } catch (error) {
+        console.error('Bootstrap error:', error);
+      }
+
       setLoading(false);
-    });
+    };
+
+    initAuth();
 
     // Hidden admin route check
     const path = window.location.pathname;
     if (path === '/guanli' || path === '/guanli.php') {
       setView('admin');
     }
-
-    return () => unsubscribe();
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -851,29 +853,35 @@ export default function App() {
     
     setLoginLoading(true);
     try {
-      // For this demo, we'll use Email/Password Auth.
-      // We'll treat the username as an email prefix.
-      const email = loginForm.username.includes('@') ? loginForm.username : `${loginForm.username}@zxschool.local`;
-      await signInWithEmailAndPassword(auth, email, loginForm.password);
+      // Custom login: Query Firestore for matching username and password
+      const q = query(
+        collection(db, 'users'), 
+        where('username', '==', loginForm.username),
+        where('password', '==', loginForm.password),
+        limit(1)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        const userDoc = querySnapshot.docs[0];
+        const userData = { uid: userDoc.id, ...userDoc.data() } as AppUser;
+        setAppUser(userData);
+        localStorage.setItem('zx_admin_session', JSON.stringify(userData));
+      } else {
+        alert('用户名或密码错误');
+      }
     } catch (error: any) {
       console.error('Login error:', error);
-      alert('登录失败: ' + (error.message || '用户名或密码错误'));
+      alert('登录失败: ' + (error.message || '系统错误'));
     } finally {
       setLoginLoading(false);
     }
   };
 
-  const handleGoogleLogin = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (error) {
-      console.error('Google login error:', error);
-    }
-  };
-
-  const handleLogout = async () => {
-    await signOut(auth);
+  const handleLogout = () => {
+    setAppUser(null);
+    localStorage.removeItem('zx_admin_session');
     setView('home');
   };
 
@@ -1279,12 +1287,9 @@ export default function App() {
                   </button>
 
                   <div className="mt-8 pt-6 border-t border-gray-50">
-                    <button 
-                      onClick={handleGoogleLogin}
-                      className="text-[10px] text-gray-300 hover:text-gray-400 transition-colors uppercase tracking-widest"
-                    >
-                      Owner Login (Bootstrap)
-                    </button>
+                    <p className="text-[10px] text-gray-300 uppercase tracking-widest">
+                      本地化管理系统已启用
+                    </p>
                   </div>
                 </div>
               </div>
