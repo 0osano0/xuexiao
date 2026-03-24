@@ -1463,36 +1463,48 @@ export default function App() {
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
   
-  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const addLog = (msg: string) => {
+    console.log(`[DEBUG] ${msg}`);
+    setDebugLogs(prev => [...prev, `${new Date().toLocaleTimeString()}: ${msg}`]);
+  };
   const [loginLoading, setLoginLoading] = useState(false);
 
   useEffect(() => {
     const initAuth = async () => {
-      console.log('Initializing application...');
+      addLog('开始初始化程序...');
       
-      // Safety timeout: force loading to false after 5 seconds no matter what
+      // Safety timeout
       const safetyTimeout = setTimeout(() => {
-        console.log('Safety timeout reached, forcing entry.');
+        addLog('⚠️ 触发 5 秒安全超时，强制进入系统。');
         setLoading(false);
       }, 5000);
 
       try {
-        // 1. Check local storage for session
+        // 1. Check local storage
+        addLog('正在检查本地会话...');
         const savedUser = localStorage.getItem('zx_admin_session');
         if (savedUser) {
           try {
             const userData = JSON.parse(savedUser);
             setAppUser(userData);
+            addLog('找到本地登录信息。');
           } catch (e) {
+            addLog('本地会话解析失败。');
             localStorage.removeItem('zx_admin_session');
           }
+        } else {
+          addLog('未找到本地会话。');
         }
 
-        // 2. Fetch Site Config with a short timeout
-        console.log('Fetching site config...');
+        // 2. Fetch Site Config
+        addLog('正在尝试连接后端 API (/api/config)...');
         const controller = new AbortController();
-        const id = setTimeout(() => controller.abort(), 3000);
+        const id = setTimeout(() => {
+          addLog('❌ API 请求在 3 秒后超时。');
+          controller.abort();
+        }, 3000);
         
         try {
           const configRes = await fetch('/api/config', { signal: controller.signal });
@@ -1501,24 +1513,29 @@ export default function App() {
           if (configRes.ok) {
             const configData = await configRes.json();
             setSiteConfig(configData);
-            console.log('Config loaded successfully.');
+            addLog('✅ 成功获取网站配置。');
           } else {
-            console.warn('Config not found, using defaults.');
-            // Try to initialize default config (don't wait for it)
+            addLog(`⚠️ API 返回错误状态: ${configRes.status}`);
+            addLog('正在尝试初始化默认配置...');
             fetch('/api/config', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(DEFAULT_CONFIG)
-            }).catch(err => console.error('Failed to init config:', err));
+            }).catch(err => addLog(`❌ 初始化默认配置失败: ${err.message}`));
           }
-        } catch (err) {
-          console.warn('Config fetch failed or timed out, using defaults.');
+        } catch (err: any) {
+          addLog(`❌ API 请求失败: ${err.message}`);
+          if (err.name === 'AbortError') {
+            addLog('提示：API 请求被中止（超时）。');
+          }
         }
 
+        addLog('初始化逻辑执行完毕。');
         clearTimeout(safetyTimeout);
       } catch (error: any) {
-        console.error('Initialization error:', error);
+        addLog(`❌ 发生未捕获的初始化错误: ${error.message}`);
       } finally {
+        addLog('正在关闭加载界面...');
         setLoading(false);
       }
     };
@@ -1569,15 +1586,27 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="h-screen flex flex-col items-center justify-center bg-white">
+      <div className="h-screen flex flex-col items-center justify-center bg-white p-4">
         <div className="w-16 h-16 border-4 border-red-100 border-t-red-600 rounded-full animate-spin mb-4"></div>
-        <div className="text-red-600 font-bold">正兴学校官网加载中...</div>
+        <div className="text-red-600 font-bold text-xl">正兴学校官网加载中...</div>
+        
+        <div className="mt-8 w-full max-w-lg bg-gray-50 rounded-xl p-4 border border-gray-100">
+          <div className="text-xs font-mono text-gray-400 mb-2 uppercase tracking-wider">诊断日志 (请截图提供给开发人员):</div>
+          <div className="h-48 overflow-y-auto text-xs font-mono text-gray-600 space-y-1">
+            {debugLogs.length === 0 && <div>等待日志输出...</div>}
+            {debugLogs.map((log, i) => (
+              <div key={i} className="border-b border-gray-100 pb-1">{log}</div>
+            ))}
+          </div>
+        </div>
+
         <button 
           onClick={() => setLoading(false)}
-          className="mt-8 text-gray-400 text-xs underline hover:text-red-600 transition-colors"
+          className="mt-8 text-red-600 text-sm font-medium hover:underline transition-colors px-4 py-2 border border-red-200 rounded-lg"
         >
-          如果加载时间过长，请点击此处直接进入
+          如果加载时间过长，请点击此处强制进入
         </button>
+        
         {loadError && (
           <div className="mt-4 px-6 py-3 bg-red-50 text-red-600 text-sm rounded-xl max-w-md text-center">
             {loadError}
