@@ -1,0 +1,90 @@
+{
+  "entities": {
+    "articles": {
+      "title": "新闻文章",
+      "description": "学校官网发布的新闻动态、通知公告等文章信息。",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "文章标题"
+        },
+        "content": {
+          "type": "string",
+          "description": "文章正文内容（Markdown格式）"
+        },
+        "summary": {
+          "type": "string",
+          "description": "文章摘要"
+        },
+        "coverImage": {
+          "type": "string",
+          "description": "封面图片URL"
+        },
+        "author": {
+          "type": "string",
+          "description": "作者姓名"
+        },
+        "category": {
+          "type": "string",
+          "description": "文章分类（如：校园新闻、通知公告、教学动态）"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "创建时间"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "最后更新时间"
+        },
+        "isPublished": {
+          "type": "boolean",
+          "description": "是否已发布"
+        }
+      },
+      "required": ["title", "content", "createdAt"]
+    },
+    "users": {
+      "title": "系统用户",
+      "description": "具有后台管理权限的用户信息。",
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string",
+          "description": "登录用户名"
+        },
+        "password": {
+          "type": "string",
+          "description": "加密后的密码"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "显示名称"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "editor"],
+          "description": "用户角色"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "创建时间"
+        }
+      },
+      "required": ["username", "password", "role"]
+    }
+  },
+  "firestore": {
+    "/articles/{articleId}": {
+      "schema": "articles",
+      "description": "存储所有新闻文章的集合"
+    },
+    "/users/{userId}": {
+      "schema": "users",
+      "description": "存储系统后台管理用户的集合"
+    }
+  }
+}

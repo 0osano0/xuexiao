@@ -1,0 +1,1379 @@
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { 
+  Menu, 
+  X, 
+  ChevronRight, 
+  BookOpen, 
+  Users, 
+  Trophy, 
+  MapPin, 
+  Phone, 
+  Mail, 
+  Globe,
+  Award,
+  Star,
+  GraduationCap,
+  Building2,
+  Heart,
+  Plus,
+  Edit,
+  Trash2,
+  LogOut,
+  LogIn,
+  ArrowLeft,
+  Save,
+  Eye,
+  Calendar,
+  UserPlus,
+  Shield,
+  Lock,
+  Settings
+} from 'lucide-react';
+import { 
+  collection, 
+  addDoc, 
+  getDocs, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  query, 
+  orderBy, 
+  onSnapshot,
+  Timestamp,
+  where,
+  getDoc,
+  setDoc
+} from 'firebase/firestore';
+import { 
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+  onAuthStateChanged, 
+  signOut,
+  User
+} from 'firebase/auth';
+import { db, auth } from './firebase';
+import ReactMarkdown from 'react-markdown';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+// --- Utils ---
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+// --- Types ---
+interface NavItem {
+  label: string;
+  id: string;
+}
+
+interface Article {
+  id: string;
+  title: string;
+  content: string;
+  summary: string;
+  coverImage: string;
+  author: string;
+  category: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  isPublished: boolean;
+}
+
+interface AppUser {
+  uid: string;
+  username: string;
+  displayName: string;
+  role: 'admin' | 'editor';
+  createdAt: Timestamp;
+}
+
+// --- Constants ---
+const NAV_ITEMS: NavItem[] = [
+  { label: '学校介绍', id: 'intro' },
+  { label: '办学优势', id: 'advantages' },
+  { label: '特色课程', id: 'courses' },
+  { label: '师资力量', id: 'faculty' },
+  { label: '校园环境', id: 'campus' },
+  { label: '学子成就', id: 'achievements' },
+  { label: '校园新闻', id: 'news' },
+];
+
+const SCHOOL_NAME = "漳州正兴学校";
+const SCHOOL_SLOGAN = "正德兴学，育才报国";
+const ADMIN_EMAIL = "uldgxk@gmail.com";
+
+// --- Components ---
+
+const Navbar = ({ onHomeClick }: { onHomeClick: () => void }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 50);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToSection = (id: string) => {
+    onHomeClick();
+    setTimeout(() => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 100);
+    setIsOpen(false);
+  };
+
+  return (
+    <nav className={cn(
+      "fixed w-full z-50 transition-all duration-300",
+      scrolled ? "bg-white/90 backdrop-blur-md shadow-md py-2" : "bg-transparent py-4"
+    )}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          <div className="flex-shrink-0 flex items-center cursor-pointer" onClick={onHomeClick}>
+            <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center mr-3 shadow-lg">
+              <span className="text-white font-bold text-xl">正</span>
+            </div>
+            <span className={cn(
+              "text-xl font-bold tracking-tight",
+              scrolled ? "text-gray-900" : "text-white"
+            )}>
+              {SCHOOL_NAME}
+            </span>
+          </div>
+          
+          <div className="hidden md:block">
+            <div className="ml-10 flex items-baseline space-x-8">
+              {NAV_ITEMS.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => scrollToSection(item.id)}
+                  className={cn(
+                    "px-3 py-2 text-sm font-medium transition-colors hover:text-red-500",
+                    scrolled ? "text-gray-700" : "text-white/90"
+                  )}
+                >
+                  {item.label}
+                </button>
+              ))}
+              <a 
+                href="http://bm.zxxuexiao.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-red-600 text-white px-5 py-2 rounded-full text-sm font-medium hover:bg-red-700 transition-all shadow-lg hover:shadow-red-500/30"
+              >
+                在线报名
+              </a>
+            </div>
+          </div>
+
+          <div className="md:hidden">
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className={cn("p-2 rounded-md", scrolled ? "text-gray-900" : "text-white")}
+            >
+              {isOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="md:hidden bg-white border-b border-gray-100 overflow-hidden"
+          >
+            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+              {NAV_ITEMS.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => scrollToSection(item.id)}
+                  className="block w-full text-left px-3 py-4 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-red-600 border-b border-gray-50"
+                >
+                  {item.label}
+                </button>
+              ))}
+              <div className="p-4">
+                <a 
+                  href="http://bm.zxxuexiao.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full text-center bg-red-600 text-white px-5 py-3 rounded-xl text-base font-medium"
+                >
+                  在线报名
+                </a>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </nav>
+  );
+};
+
+const SectionHeading = ({ title, subtitle, light = false }: { title: string; subtitle?: string; light?: boolean }) => (
+  <div className="text-center mb-16">
+    <motion.h2 
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      className={cn("text-3xl md:text-4xl font-bold mb-4", light ? "text-white" : "text-gray-900")}
+    >
+      {title}
+    </motion.h2>
+    {subtitle && (
+      <motion.p 
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ delay: 0.1 }}
+        className={cn("max-w-2xl mx-auto text-lg", light ? "text-white/80" : "text-gray-600")}
+      >
+        {subtitle}
+      </motion.p>
+    )}
+    <motion.div 
+      initial={{ scaleX: 0 }}
+      whileInView={{ scaleX: 1 }}
+      viewport={{ once: true }}
+      transition={{ delay: 0.2, duration: 0.8 }}
+      className="w-20 h-1 bg-red-600 mx-auto mt-6 rounded-full"
+    />
+  </div>
+);
+
+// --- Admin Dashboard Component ---
+const UserManagement = ({ currentUser }: { currentUser: AppUser }) => {
+  const [users, setUsers] = useState<AppUser[]>([]);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newUser, setNewUser] = useState({ username: '', password: '', displayName: '', role: 'editor' as 'admin' | 'editor' });
+
+  useEffect(() => {
+    const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as AppUser));
+      setUsers(docs);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleAddUser = async () => {
+    if (!newUser.username || !newUser.password || !newUser.displayName) {
+      alert('请填写完整信息');
+      return;
+    }
+
+    try {
+      // Note: In a real app, we'd use a cloud function to create the auth user.
+      // For this demo, we'll store the password in Firestore (NOT SECURE for production, but fits "local management" request).
+      // Ideally, we'd use Firebase Auth's createUserWithEmailAndPassword.
+      const userRef = doc(collection(db, 'users'));
+      await setDoc(userRef, {
+        username: newUser.username,
+        password: newUser.password, // In real apps, hash this!
+        displayName: newUser.displayName,
+        role: newUser.role,
+        createdAt: Timestamp.now()
+      });
+      setIsAdding(false);
+      setNewUser({ username: '', password: '', displayName: '', role: 'editor' });
+    } catch (error) {
+      console.error('Error adding user:', error);
+      alert('添加失败');
+    }
+  };
+
+  const handleDeleteUser = async (uid: string) => {
+    if (uid === currentUser.uid) {
+      alert('不能删除自己');
+      return;
+    }
+    if (window.confirm('确定删除该用户吗？')) {
+      await deleteDoc(doc(db, 'users', uid));
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h3 className="text-xl font-bold text-gray-900">用户管理</h3>
+        <button 
+          onClick={() => setIsAdding(true)}
+          className="bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-700 transition-all flex items-center"
+        >
+          <UserPlus size={18} className="mr-2" /> 添加用户
+        </button>
+      </div>
+
+      {isAdding && (
+        <div className="bg-white p-6 rounded-3xl border border-red-100 shadow-sm space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input 
+              type="text" 
+              placeholder="用户名" 
+              value={newUser.username}
+              onChange={e => setNewUser({...newUser, username: e.target.value})}
+              className="px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 outline-none"
+            />
+            <input 
+              type="password" 
+              placeholder="密码" 
+              value={newUser.password}
+              onChange={e => setNewUser({...newUser, password: e.target.value})}
+              className="px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 outline-none"
+            />
+            <input 
+              type="text" 
+              placeholder="显示名称" 
+              value={newUser.displayName}
+              onChange={e => setNewUser({...newUser, displayName: e.target.value})}
+              className="px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 outline-none"
+            />
+            <select 
+              value={newUser.role}
+              onChange={e => setNewUser({...newUser, role: e.target.value as any})}
+              className="px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 outline-none"
+            >
+              <option value="editor">编辑 (仅管理文章)</option>
+              <option value="admin">管理员 (全权限)</option>
+            </select>
+          </div>
+          <div className="flex justify-end space-x-3">
+            <button onClick={() => setIsAdding(false)} className="px-4 py-2 text-gray-500 hover:text-gray-700">取消</button>
+            <button onClick={handleAddUser} className="bg-red-600 text-white px-6 py-2 rounded-xl font-bold">确认添加</button>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
+        <table className="w-full text-left">
+          <thead className="bg-gray-50 border-b border-gray-100">
+            <tr>
+              <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">用户</th>
+              <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">角色</th>
+              <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">创建时间</th>
+              <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">操作</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {users.map(u => (
+              <tr key={u.uid} className="hover:bg-gray-50/50 transition-colors">
+                <td className="px-6 py-4">
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 bg-red-50 text-red-600 rounded-full flex items-center justify-center font-bold mr-3">
+                      {u.displayName.charAt(0)}
+                    </div>
+                    <div>
+                      <div className="font-bold text-gray-900">{u.displayName}</div>
+                      <div className="text-xs text-gray-400">@{u.username}</div>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-6 py-4">
+                  <span className={cn(
+                    "px-3 py-1 rounded-full text-xs font-bold",
+                    u.role === 'admin' ? "bg-purple-50 text-purple-600" : "bg-blue-50 text-blue-600"
+                  )}>
+                    {u.role === 'admin' ? '管理员' : '编辑'}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-sm text-gray-500">
+                  {u.createdAt?.toDate().toLocaleDateString()}
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <button 
+                    onClick={() => handleDeleteUser(u.uid)}
+                    className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+const AdminDashboard = ({ appUser, onLogout }: { appUser: AppUser; onLogout: () => void }) => {
+  const [activeTab, setActiveTab] = useState<'articles' | 'users'>('articles');
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentArticle, setCurrentArticle] = useState<Partial<Article>>({
+    title: '',
+    content: '',
+    summary: '',
+    coverImage: '',
+    category: '校园新闻',
+    isPublished: false
+  });
+
+  useEffect(() => {
+    const q = query(collection(db, 'articles'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Article));
+      setArticles(docs);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleSave = async () => {
+    if (!currentArticle.title || !currentArticle.content) {
+      alert('标题和内容不能为空');
+      return;
+    }
+
+    const data = {
+      ...currentArticle,
+      updatedAt: Timestamp.now(),
+      createdAt: currentArticle.createdAt || Timestamp.now(),
+      author: appUser.displayName
+    };
+
+    try {
+      if (currentArticle.id) {
+        await updateDoc(doc(db, 'articles', currentArticle.id), data);
+      } else {
+        await addDoc(collection(db, 'articles'), data);
+      }
+      setIsEditing(false);
+      setCurrentArticle({ title: '', content: '', summary: '', coverImage: '', category: '校园新闻', isPublished: false });
+    } catch (error) {
+      console.error('Error saving article:', error);
+      alert('保存失败，请检查权限');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm('确定要删除这篇文章吗？')) {
+      try {
+        await deleteDoc(doc(db, 'articles', id));
+      } catch (error) {
+        console.error('Error deleting article:', error);
+        alert('删除失败');
+      }
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <div className="pt-24 pb-12 bg-gray-50 min-h-screen">
+        <div className="max-w-4xl mx-auto px-4">
+          <button 
+            onClick={() => setIsEditing(false)}
+            className="flex items-center text-gray-600 hover:text-red-600 mb-8 transition-colors"
+          >
+            <ArrowLeft size={20} className="mr-2" /> 返回列表
+          </button>
+          
+          <div className="bg-white rounded-3xl p-8 shadow-xl border border-gray-100">
+            <h2 className="text-2xl font-bold mb-8">{currentArticle.id ? '编辑文章' : '发布新文章'}</h2>
+            
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">文章标题</label>
+                <input 
+                  type="text"
+                  value={currentArticle.title}
+                  onChange={(e) => setCurrentArticle({ ...currentArticle, title: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+                  placeholder="请输入标题"
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">分类</label>
+                  <select 
+                    value={currentArticle.category}
+                    onChange={(e) => setCurrentArticle({ ...currentArticle, category: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 transition-all"
+                  >
+                    <option>校园新闻</option>
+                    <option>通知公告</option>
+                    <option>教学动态</option>
+                    <option>学子风采</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">封面图 URL</label>
+                  <input 
+                    type="text"
+                    value={currentArticle.coverImage}
+                    onChange={(e) => setCurrentArticle({ ...currentArticle, coverImage: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 transition-all"
+                    placeholder="https://..."
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">摘要</label>
+                <textarea 
+                  value={currentArticle.summary}
+                  onChange={(e) => setCurrentArticle({ ...currentArticle, summary: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 transition-all h-24"
+                  placeholder="简短的文章介绍"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">正文内容 (支持 Markdown)</label>
+                <textarea 
+                  value={currentArticle.content}
+                  onChange={(e) => setCurrentArticle({ ...currentArticle, content: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 transition-all h-64 font-mono"
+                  placeholder="# 标题\n\n正文内容..."
+                />
+              </div>
+
+              <div className="flex items-center space-x-4 py-4">
+                <label className="flex items-center cursor-pointer">
+                  <input 
+                    type="checkbox"
+                    checked={currentArticle.isPublished}
+                    onChange={(e) => setCurrentArticle({ ...currentArticle, isPublished: e.target.checked })}
+                    className="w-5 h-5 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                  />
+                  <span className="ml-2 text-gray-700">立即发布</span>
+                </label>
+              </div>
+
+              <div className="flex justify-end space-x-4 pt-4">
+                <button 
+                  onClick={handleSave}
+                  className="bg-red-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-red-700 transition-all flex items-center"
+                >
+                  <Save size={20} className="mr-2" /> 保存文章
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pt-24 pb-12 bg-gray-50 min-h-screen">
+      <div className="max-w-6xl mx-auto px-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
+          <div>
+            <h2 className="text-3xl font-bold text-gray-900">管理后台</h2>
+            <p className="text-gray-500 mt-2">欢迎回来，{appUser.displayName} ({appUser.role === 'admin' ? '管理员' : '编辑'})</p>
+          </div>
+          <div className="flex space-x-4">
+            {activeTab === 'articles' && (
+              <button 
+                onClick={() => {
+                  setCurrentArticle({ title: '', content: '', summary: '', coverImage: '', category: '校园新闻', isPublished: false });
+                  setIsEditing(true);
+                }}
+                className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700 transition-all flex items-center shadow-lg shadow-red-500/20"
+              >
+                <Plus size={20} className="mr-2" /> 发布文章
+              </button>
+            )}
+            <button 
+              onClick={onLogout}
+              className="bg-white text-gray-700 border border-gray-200 px-6 py-3 rounded-xl font-bold hover:bg-gray-50 transition-all flex items-center"
+            >
+              <LogOut size={20} className="mr-2" /> 退出登录
+            </button>
+          </div>
+        </div>
+
+        <div className="flex space-x-1 bg-gray-200/50 p-1 rounded-2xl mb-8 w-fit">
+          <button 
+            onClick={() => setActiveTab('articles')}
+            className={cn(
+              "px-6 py-2 rounded-xl text-sm font-bold transition-all",
+              activeTab === 'articles' ? "bg-white text-red-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+            )}
+          >
+            文章管理
+          </button>
+          {appUser.role === 'admin' && (
+            <button 
+              onClick={() => setActiveTab('users')}
+              className={cn(
+                "px-6 py-2 rounded-xl text-sm font-bold transition-all",
+                activeTab === 'users' ? "bg-white text-red-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+              )}
+            >
+              用户管理
+            </button>
+          )}
+        </div>
+
+        {activeTab === 'articles' ? (
+          <div className="grid grid-cols-1 gap-6">
+            {articles.length === 0 ? (
+              <div className="bg-white rounded-3xl p-12 text-center border border-dashed border-gray-300">
+                <p className="text-gray-400">暂无文章，点击上方按钮开始发布</p>
+              </div>
+            ) : (
+              articles.map(article => (
+                <div key={article.id} className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row items-center gap-6 hover:shadow-md transition-all">
+                  <div className="w-full md:w-32 h-24 rounded-2xl overflow-hidden bg-gray-100 flex-shrink-0">
+                    {article.coverImage ? (
+                      <img src={article.coverImage} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-300"><BookOpen size={32} /></div>
+                    )}
+                  </div>
+                  <div className="flex-grow">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded-md">{article.category}</span>
+                      <span className={cn(
+                        "text-xs font-bold px-2 py-1 rounded-md",
+                        article.isPublished ? "text-green-600 bg-green-50" : "text-amber-600 bg-amber-50"
+                      )}>
+                        {article.isPublished ? '已发布' : '草稿'}
+                      </span>
+                      <span className="text-xs text-gray-400">{article.createdAt?.toDate().toLocaleDateString()}</span>
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-1">{article.title}</h3>
+                    <p className="text-gray-500 text-sm line-clamp-1">{article.summary}</p>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button 
+                      onClick={() => {
+                        setCurrentArticle(article);
+                        setIsEditing(true);
+                      }}
+                      className="p-3 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+                    >
+                      <Edit size={20} />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(article.id)}
+                      className="p-3 text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  </div>
+                </div>
+              )
+            )
+          )}
+        </div>
+        ) : (
+          <UserManagement currentUser={appUser} />
+        )}
+      </div>
+    </div>
+  );
+};
+
+// --- News Section Component ---
+const NewsSection = ({ onArticleClick }: { onArticleClick: (article: Article) => void }) => {
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'articles'), 
+      where('isPublished', '==', true),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Article));
+      setArticles(docs);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  if (loading) return <div className="py-24 text-center text-gray-400">加载中...</div>;
+
+  return (
+    <section id="news" className="py-24 bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <SectionHeading 
+          title="校园新闻" 
+          subtitle="关注正兴动态，见证学校成长"
+        />
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {articles.length === 0 ? (
+            <div className="col-span-3 text-center py-12 text-gray-400">暂无新闻动态</div>
+          ) : (
+            articles.map((article, index) => (
+              <motion.div
+                key={article.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                onClick={() => onArticleClick(article)}
+                className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all group cursor-pointer border border-gray-100"
+              >
+                <div className="aspect-video overflow-hidden relative">
+                  <img 
+                    src={article.coverImage || `https://picsum.photos/seed/${article.id}/800/600`} 
+                    alt={article.title} 
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute top-4 left-4">
+                    <span className="bg-red-600 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full">
+                      {article.category}
+                    </span>
+                  </div>
+                </div>
+                <div className="p-8">
+                  <div className="flex items-center text-gray-400 text-xs mb-4">
+                    <Calendar size={14} className="mr-2" />
+                    {article.createdAt?.toDate().toLocaleDateString()}
+                  </div>
+                  <h3 className="text-xl font-bold mb-4 text-gray-900 group-hover:text-red-600 transition-colors line-clamp-2">
+                    {article.title}
+                  </h3>
+                  <p className="text-gray-500 text-sm leading-relaxed line-clamp-3 mb-6">
+                    {article.summary || article.content.substring(0, 100) + '...'}
+                  </p>
+                  <div className="flex items-center text-red-600 font-bold text-sm">
+                    阅读更多 <ChevronRight size={16} className="ml-1 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+              </motion.div>
+            ))
+          )}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// --- Article Detail Component ---
+const ArticleDetail = ({ article, onBack }: { article: Article; onBack: () => void }) => {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
+  return (
+    <div className="pt-24 pb-24 bg-white min-h-screen">
+      <div className="max-w-4xl mx-auto px-4">
+        <button 
+          onClick={onBack}
+          className="flex items-center text-gray-600 hover:text-red-600 mb-12 transition-colors group"
+        >
+          <ArrowLeft size={20} className="mr-2 group-hover:-translate-x-1 transition-transform" /> 返回新闻列表
+        </button>
+
+        <div className="mb-12">
+          <div className="flex items-center space-x-4 mb-6">
+            <span className="bg-red-50 text-red-600 text-xs font-bold px-3 py-1 rounded-full">{article.category}</span>
+            <span className="text-gray-400 text-sm">{article.createdAt?.toDate().toLocaleDateString()}</span>
+          </div>
+          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-8 leading-tight">{article.title}</h1>
+          {article.coverImage && (
+            <div className="rounded-3xl overflow-hidden shadow-2xl mb-12">
+              <img src={article.coverImage} alt="" className="w-full h-auto" referrerPolicy="no-referrer" />
+            </div>
+          )}
+        </div>
+
+        <div className="prose prose-lg prose-red max-w-none">
+          <ReactMarkdown>{article.content}</ReactMarkdown>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Main App Component ---
+export default function App() {
+  const [view, setView] = useState<'home' | 'admin' | 'article'>('home');
+  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [appUser, setAppUser] = useState<AppUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+        if (userDoc.exists()) {
+          setAppUser({ uid: currentUser.uid, ...userDoc.data() } as AppUser);
+        } else {
+          // Check if this is the bootstrap admin (uldgxk@gmail.com)
+          if (currentUser.email === ADMIN_EMAIL) {
+            const bootstrapUser: AppUser = {
+              uid: currentUser.uid,
+              username: 'admin',
+              displayName: '超级管理员',
+              role: 'admin',
+              createdAt: Timestamp.now()
+            };
+            await setDoc(doc(db, 'users', currentUser.uid), {
+              username: bootstrapUser.username,
+              displayName: bootstrapUser.displayName,
+              role: bootstrapUser.role,
+              createdAt: bootstrapUser.createdAt
+            });
+            setAppUser(bootstrapUser);
+          }
+        }
+      } else {
+        setAppUser(null);
+      }
+      setLoading(false);
+    });
+
+    // Hidden admin route check
+    const path = window.location.pathname;
+    if (path === '/guanli' || path === '/guanli.php') {
+      setView('admin');
+    }
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginForm.username || !loginForm.password) return;
+    
+    setLoginLoading(true);
+    try {
+      // For this demo, we'll use Email/Password Auth.
+      // We'll treat the username as an email prefix.
+      const email = loginForm.username.includes('@') ? loginForm.username : `${loginForm.username}@zxschool.local`;
+      await signInWithEmailAndPassword(auth, email, loginForm.password);
+    } catch (error: any) {
+      console.error('Login error:', error);
+      alert('登录失败: ' + (error.message || '用户名或密码错误'));
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error('Google login error:', error);
+    }
+  };
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    setView('home');
+  };
+
+  if (loading) return <div className="h-screen flex items-center justify-center text-red-600 font-bold">正兴学校官网加载中...</div>;
+
+  return (
+    <div className="min-h-screen bg-white font-sans text-gray-900 selection:bg-red-100 selection:text-red-600">
+      <Navbar 
+        onHomeClick={() => setView('home')} 
+      />
+
+      <AnimatePresence mode="wait">
+        {view === 'home' && (
+          <motion.div
+            key="home"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            {/* Hero Section */}
+            <section className="relative h-screen flex items-center justify-center overflow-hidden">
+              <div className="absolute inset-0 z-0">
+                <img 
+                  src="https://picsum.photos/seed/school-campus/1920/1080" 
+                  alt="Campus" 
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+              </div>
+              
+              <div className="relative z-10 text-center px-4 max-w-5xl mx-auto">
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8 }}
+                >
+                  <h1 className="text-5xl md:text-7xl font-extrabold text-white mb-6 tracking-tight">
+                    {SCHOOL_NAME}
+                  </h1>
+                  <p className="text-xl md:text-2xl text-white/90 mb-10 font-light tracking-widest">
+                    {SCHOOL_SLOGAN}
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button 
+                      onClick={() => document.getElementById('intro')?.scrollIntoView({ behavior: 'smooth' })}
+                      className="bg-red-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-red-700 transition-all shadow-xl hover:shadow-red-600/40 flex items-center justify-center group"
+                    >
+                      了解更多 <ChevronRight className="ml-2 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                    <button className="bg-white/10 backdrop-blur-md text-white border border-white/30 px-8 py-4 rounded-full text-lg font-semibold hover:bg-white/20 transition-all">
+                      校园全景
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+
+              <motion.div 
+                animate={{ y: [0, 10, 0] }}
+                transition={{ repeat: Infinity, duration: 2 }}
+                className="absolute bottom-10 left-1/2 -translate-x-1/2 text-white/50"
+              >
+                <div className="w-6 h-10 border-2 border-white/30 rounded-full flex justify-center p-1">
+                  <div className="w-1 h-2 bg-white rounded-full" />
+                </div>
+              </motion.div>
+            </section>
+
+            {/* 学校介绍 - Intro */}
+            <section id="intro" className="py-24 bg-white">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+                  <motion.div
+                    initial={{ opacity: 0, x: -50 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    className="relative"
+                  >
+                    <div className="aspect-video rounded-3xl overflow-hidden shadow-2xl">
+                      <img 
+                        src="https://picsum.photos/seed/school-building/800/600" 
+                        alt="School Building" 
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                    <div className="absolute -bottom-8 -right-8 bg-red-600 text-white p-8 rounded-3xl shadow-xl hidden md:block">
+                      <p className="text-4xl font-bold mb-1">20+</p>
+                      <p className="text-sm opacity-80 uppercase tracking-wider">载办学经验</p>
+                    </div>
+                  </motion.div>
+                  
+                  <motion.div
+                    initial={{ opacity: 0, x: 50 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                  >
+                    <h3 className="text-red-600 font-semibold tracking-widest uppercase mb-4">关于我们</h3>
+                    <h2 className="text-4xl font-bold text-gray-900 mb-6">正德兴学，追求卓越</h2>
+                    <p className="text-gray-600 text-lg leading-relaxed mb-8">
+                      漳州正兴学校坐落于美丽的九龙江畔，是一所集小学、初中、高中为一体的现代化全日制寄宿学校。学校秉承“正德兴学”的办学理念，致力于培养具有家国情怀、国际视野、创新精神的时代新人。
+                    </p>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="flex items-start space-x-4">
+                        <div className="bg-red-50 p-3 rounded-xl text-red-600">
+                          <Building2 size={24} />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-gray-900">现代化校园</h4>
+                          <p className="text-sm text-gray-500">占地面积广，设施先进</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start space-x-4">
+                        <div className="bg-red-50 p-3 rounded-xl text-red-600">
+                          <Heart size={24} />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-gray-900">人文关怀</h4>
+                          <p className="text-sm text-gray-500">关注每一位学子的成长</p>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                </div>
+              </div>
+            </section>
+
+            {/* 办学优势 - Advantages */}
+            <section id="advantages" className="py-24 bg-gray-50">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <SectionHeading 
+                  title="办学优势" 
+                  subtitle="我们致力于提供最优质的教育资源，助力学子全面发展"
+                />
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  {[
+                    { icon: <Award />, title: "卓越教学质量", desc: "连续多年中高考成绩名列前茅，升学率稳步提升。" },
+                    { icon: <Users />, title: "精英管理团队", desc: "由资深教育专家领衔，实行精细化、人性化管理。" },
+                    { icon: <Globe />, title: "国际化视野", desc: "与多所海外名校建立合作，提供多元化升学通道。" },
+                    { icon: <Star />, title: "个性化培养", desc: "关注学生特长，实行小班化教学，因材施教。" },
+                    { icon: <Building2 />, title: "一流硬件设施", desc: "智慧教室、多功能实验室、标准化运动场一应俱全。" },
+                    { icon: <Heart />, title: "全方位服务", desc: "星级食宿条件，专业心理咨询，保障学生身心健康。" },
+                  ].map((item, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: index * 0.1 }}
+                      className="bg-white p-8 rounded-3xl shadow-sm hover:shadow-xl transition-all group border border-gray-100"
+                    >
+                      <div className="w-14 h-14 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-red-600 group-hover:text-white transition-colors">
+                        {React.cloneElement(item.icon as any, { size: 28 })}
+                      </div>
+                      <h3 className="text-xl font-bold mb-4 text-gray-900">{item.title}</h3>
+                      <p className="text-gray-600 leading-relaxed">{item.desc}</p>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* 特色课程 - Courses */}
+            <section id="courses" className="py-24 bg-white">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <SectionHeading 
+                  title="特色课程" 
+                  subtitle="打破传统教学边界，构建多元化课程体系"
+                />
+                
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                  {[
+                    { title: "国学经典", category: "人文素养", img: "https://picsum.photos/seed/culture/400/500" },
+                    { title: "科创实验", category: "科技创新", img: "https://picsum.photos/seed/science/400/500" },
+                    { title: "艺术鉴赏", category: "美育教育", img: "https://picsum.photos/seed/art/400/500" },
+                    { title: "体育竞技", category: "身心健康", img: "https://picsum.photos/seed/sports/400/500" },
+                  ].map((course, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      whileInView={{ opacity: 1, scale: 1 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: index * 0.1 }}
+                      className="relative group h-[400px] rounded-3xl overflow-hidden cursor-pointer"
+                    >
+                      <img 
+                        src={course.img} 
+                        alt={course.title} 
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                      <div className="absolute bottom-0 left-0 p-8">
+                        <span className="text-red-500 text-xs font-bold uppercase tracking-widest mb-2 block">{course.category}</span>
+                        <h3 className="text-2xl font-bold text-white">{course.title}</h3>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* 师资力量 - Faculty */}
+            <section id="faculty" className="py-24 bg-gray-900 text-white overflow-hidden">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <SectionHeading 
+                  title="师资力量" 
+                  subtitle="名师荟萃，匠心育人。我们的教师团队由省市级骨干教师和名校硕士组成。"
+                  light
+                />
+                
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                  {[
+                    { name: "张老师", title: "特级教师", role: "数学组组长", img: "https://picsum.photos/seed/teacher1/300/400" },
+                    { name: "李老师", title: "高级教师", role: "语文名师", img: "https://picsum.photos/seed/teacher2/300/400" },
+                    { name: "王老师", title: "骨干教师", role: "英语学科带头人", img: "https://picsum.photos/seed/teacher3/300/400" },
+                    { name: "赵老师", title: "博士教师", role: "物理竞赛教练", img: "https://picsum.photos/seed/teacher4/300/400" },
+                  ].map((teacher, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, y: 30 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: index * 0.1 }}
+                      className="group"
+                    >
+                      <div className="relative aspect-[3/4] rounded-2xl overflow-hidden mb-6">
+                        <img 
+                          src={teacher.img} 
+                          alt={teacher.name} 
+                          className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute inset-0 bg-red-600/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                      <h3 className="text-xl font-bold mb-1">{teacher.name}</h3>
+                      <p className="text-red-500 text-sm font-medium mb-2">{teacher.title}</p>
+                      <p className="text-white/60 text-sm">{teacher.role}</p>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* 校园环境 - Campus */}
+            <section id="campus" className="py-24 bg-white">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <SectionHeading 
+                  title="校园环境" 
+                  subtitle="优美的校园环境，先进的教学设施，为学子提供最佳的学习生活空间"
+                />
+                
+                <div className="grid grid-cols-12 gap-4 h-[600px]">
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }}
+                    className="col-span-12 md:col-span-8 rounded-3xl overflow-hidden relative group"
+                  >
+                    <img src="https://picsum.photos/seed/campus1/1200/800" alt="Campus 1" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" referrerPolicy="no-referrer" />
+                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <span className="text-white font-bold text-xl">教学大楼</span>
+                    </div>
+                  </motion.div>
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.1 }}
+                    className="col-span-6 md:col-span-4 rounded-3xl overflow-hidden relative group"
+                  >
+                    <img src="https://picsum.photos/seed/campus2/600/800" alt="Campus 2" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" referrerPolicy="no-referrer" />
+                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <span className="text-white font-bold text-xl">图书馆</span>
+                    </div>
+                  </motion.div>
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.2 }}
+                    className="col-span-6 md:col-span-4 rounded-3xl overflow-hidden relative group"
+                  >
+                    <img src="https://picsum.photos/seed/campus3/600/800" alt="Campus 3" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" referrerPolicy="no-referrer" />
+                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <span className="text-white font-bold text-xl">体育馆</span>
+                    </div>
+                  </motion.div>
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.3 }}
+                    className="col-span-12 md:col-span-8 rounded-3xl overflow-hidden relative group"
+                  >
+                    <img src="https://picsum.photos/seed/campus4/1200/800" alt="Campus 4" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" referrerPolicy="no-referrer" />
+                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <span className="text-white font-bold text-xl">学生公寓</span>
+                    </div>
+                  </motion.div>
+                </div>
+              </div>
+            </section>
+
+            {/* 校园新闻 - News */}
+            <NewsSection onArticleClick={(article) => {
+              setSelectedArticle(article);
+              setView('article');
+            }} />
+
+            {/* 学子成就 - Achievements */}
+            <section id="achievements" className="py-24 bg-red-600 text-white">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <SectionHeading 
+                  title="学子成就" 
+                  subtitle="见证每一份努力，分享每一份喜悦。正兴学子遍布全球名校。"
+                  light
+                />
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+                  {[
+                    { number: "98%", label: "本科升学率", icon: <GraduationCap /> },
+                    { number: "500+", label: "竞赛奖项", icon: <Trophy /> },
+                    { number: "100+", label: "名校录取通知", icon: <BookOpen /> },
+                  ].map((stat, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      whileInView={{ opacity: 1, scale: 1 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: index * 0.1 }}
+                      className="text-center"
+                    >
+                      <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-6 backdrop-blur-md">
+                        {React.cloneElement(stat.icon as any, { size: 36 })}
+                      </div>
+                      <div className="text-5xl font-black mb-2">{stat.number}</div>
+                      <div className="text-white/70 text-lg font-medium uppercase tracking-widest">{stat.label}</div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          </motion.div>
+        )}
+
+        {view === 'admin' && (
+          <motion.div
+            key="admin"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            {appUser ? (
+              <AdminDashboard appUser={appUser} onLogout={handleLogout} />
+            ) : (
+              <div className="h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
+                <div className="bg-white p-12 rounded-3xl shadow-2xl text-center max-w-md w-full border border-gray-100">
+                  <div className="w-20 h-20 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-8">
+                    <Lock size={40} />
+                  </div>
+                  <h2 className="text-2xl font-bold mb-4">管理员登录</h2>
+                  <p className="text-gray-500 mb-8">请输入您的账号和密码以进入管理后台</p>
+                  
+                  <form onSubmit={handleLogin} className="space-y-4">
+                    <div className="text-left">
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">用户名</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={loginForm.username}
+                        onChange={e => setLoginForm({...loginForm, username: e.target.value})}
+                        className="w-full px-5 py-4 rounded-xl border border-gray-100 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-red-500 transition-all outline-none"
+                        placeholder="admin"
+                      />
+                    </div>
+                    <div className="text-left">
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">密码</label>
+                      <input 
+                        type="password" 
+                        required
+                        value={loginForm.password}
+                        onChange={e => setLoginForm({...loginForm, password: e.target.value})}
+                        className="w-full px-5 py-4 rounded-xl border border-gray-100 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-red-500 transition-all outline-none"
+                        placeholder="••••••••"
+                      />
+                    </div>
+                    <button 
+                      type="submit"
+                      disabled={loginLoading}
+                      className="w-full bg-red-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-500/20 flex items-center justify-center disabled:opacity-50"
+                    >
+                      {loginLoading ? '登录中...' : '立即登录'}
+                    </button>
+                  </form>
+
+                  <button 
+                    onClick={() => setView('home')}
+                    className="w-full mt-6 text-gray-400 hover:text-red-600 transition-colors text-sm font-medium"
+                  >
+                    返回首页
+                  </button>
+
+                  <div className="mt-8 pt-6 border-t border-gray-50">
+                    <button 
+                      onClick={handleGoogleLogin}
+                      className="text-[10px] text-gray-300 hover:text-gray-400 transition-colors uppercase tracking-widest"
+                    >
+                      Owner Login (Bootstrap)
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {view === 'article' && selectedArticle && (
+          <motion.div
+            key="article"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+          >
+            <ArticleDetail 
+              article={selectedArticle} 
+              onBack={() => setView('home')} 
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Footer */}
+      <footer className="bg-gray-900 text-white pt-24 pb-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+            <div className="col-span-1 md:col-span-2">
+              <div className="flex items-center mb-6">
+                <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center mr-3">
+                  <span className="text-white font-bold text-xl">正</span>
+                </div>
+                <span className="text-2xl font-bold tracking-tight">{SCHOOL_NAME}</span>
+              </div>
+              <p className="text-white/50 max-w-md mb-8 leading-relaxed">
+                漳州正兴学校是一所致力于卓越教育的现代化学校。我们以“正德兴学”为核心，为每一位学子提供最优质的成长平台。
+              </p>
+              <div className="flex space-x-4">
+                <div className="w-10 h-10 bg-white/5 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors cursor-pointer">
+                  <Globe size={18} />
+                </div>
+                <div className="w-10 h-10 bg-white/5 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors cursor-pointer">
+                  <Phone size={18} />
+                </div>
+                <div className="w-10 h-10 bg-white/5 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors cursor-pointer">
+                  <Mail size={18} />
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <h4 className="text-lg font-bold mb-6">快速链接</h4>
+              <ul className="space-y-4 text-white/50">
+                {NAV_ITEMS.map(item => (
+                  <li key={item.id}>
+                    <button onClick={() => {
+                      setView('home');
+                      setTimeout(() => document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth' }), 100);
+                    }} className="hover:text-red-500 transition-colors">
+                      {item.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            
+            <div>
+              <h4 className="text-lg font-bold mb-6">联系我们</h4>
+              <ul className="space-y-4 text-white/50">
+                <li className="flex items-start">
+                  <MapPin size={18} className="mr-3 text-red-600 shrink-0 mt-1" />
+                  <span>福建省漳州市芗城区正兴大道1号</span>
+                </li>
+                <li className="flex items-center">
+                  <Phone size={18} className="mr-3 text-red-600 shrink-0" />
+                  <span>0596-1234567</span>
+                </li>
+                <li className="flex items-center">
+                  <Mail size={18} className="mr-3 text-red-600 shrink-0" />
+                  <span>contact@zxschool.com</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="pt-12 border-t border-white/5 text-center text-white/30 text-sm">
+            <p>© {new Date().getFullYear()} {SCHOOL_NAME}. All Rights Reserved.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
