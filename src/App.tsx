@@ -28,8 +28,16 @@ import {
   UserPlus,
   Shield,
   Lock,
-  Settings
+  Settings,
+  Layout,
+  Info,
+  Zap,
+  Camera,
+  ArrowRight,
+  Quote,
+  Search
 } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { 
   collection, 
   addDoc, 
@@ -83,6 +91,75 @@ interface AppUser {
   role: 'admin' | 'editor';
   createdAt: Timestamp;
 }
+
+interface SiteConfig {
+  hero: {
+    title: string;
+    subtitle: string;
+    description: string;
+    bgImage: string;
+    videoUrl?: string;
+  };
+  intro: {
+    tag: string;
+    title: string;
+    content: string;
+    image: string;
+    years: string;
+  };
+  advantages: { icon: string; title: string; desc: string }[];
+  courses: { title: string; category: string; img: string }[];
+  faculty: { name: string; title: string; role: string; img: string }[];
+  campus: { title: string; img: string; size: 'large' | 'small' }[];
+  achievements: { number: string; label: string; icon: string }[];
+}
+
+const DEFAULT_CONFIG: SiteConfig = {
+  hero: {
+    title: "漳州正兴学校",
+    subtitle: "人正则立，品正则兴",
+    description: "正德兴学 · 追求卓越 · 育才报国",
+    bgImage: "https://picsum.photos/seed/school-campus/1920/1080"
+  },
+  intro: {
+    tag: "关于我们",
+    title: "正德兴学，追求卓越",
+    content: "漳州正兴学校坐落于美丽的九龙江畔，是一所集小学、初中、高中为一体的现代化全日制寄宿学校。学校秉承“正德兴学”的办学理念，致力于培养具有家国情怀、国际视野、创新精神的时代新人。",
+    image: "https://picsum.photos/seed/school-building/800/600",
+    years: "20+"
+  },
+  advantages: [
+    { icon: "Award", title: "卓越教学质量", desc: "连续多年中高考成绩名列前茅，升学率稳步提升。" },
+    { icon: "Users", title: "精英管理团队", desc: "由资深教育专家领衔，实行精细化、人性化管理。" },
+    { icon: "Globe", title: "国际化视野", desc: "与多所海外名校建立合作，提供多元化升学通道。" },
+    { icon: "Star", title: "个性化培养", desc: "关注学生特长，实行小班化教学，因材施教。" },
+    { icon: "Building2", title: "一流硬件设施", desc: "智慧教室、多功能实验室、标准化运动场一应俱全。" },
+    { icon: "Heart", title: "全方位服务", desc: "星级食宿条件，专业心理咨询，保障学生身心健康。" },
+  ],
+  courses: [
+    { title: "国学经典", category: "人文素养", img: "https://picsum.photos/seed/culture/400/500" },
+    { title: "科创实验", category: "科技创新", img: "https://picsum.photos/seed/science/400/500" },
+    { title: "艺术鉴赏", category: "美育教育", img: "https://picsum.photos/seed/art/400/500" },
+    { title: "体育竞技", category: "身心健康", img: "https://picsum.photos/seed/sports/400/500" },
+  ],
+  faculty: [
+    { name: "张老师", title: "特级教师", role: "数学组组长", img: "https://picsum.photos/seed/teacher1/300/400" },
+    { name: "李老师", title: "高级教师", role: "语文名师", img: "https://picsum.photos/seed/teacher2/300/400" },
+    { name: "王老师", title: "骨干教师", role: "英语学科带头人", img: "https://picsum.photos/seed/teacher3/300/400" },
+    { name: "赵老师", title: "博士教师", role: "物理竞赛教练", img: "https://picsum.photos/seed/teacher4/300/400" },
+  ],
+  campus: [
+    { title: "教学大楼", img: "https://picsum.photos/seed/campus1/1200/800", size: 'large' },
+    { title: "图书馆", img: "https://picsum.photos/seed/campus2/600/800", size: 'small' },
+    { title: "体育馆", img: "https://picsum.photos/seed/campus3/600/800", size: 'small' },
+    { title: "学生公寓", img: "https://picsum.photos/seed/campus4/1200/800", size: 'large' },
+  ],
+  achievements: [
+    { number: "98%", label: "本科升学率", icon: "GraduationCap" },
+    { number: "500+", label: "竞赛奖项", icon: "Trophy" },
+    { number: "100+", label: "名校录取通知", icon: "BookOpen" },
+  ]
+};
 
 // --- Constants ---
 const NAV_ITEMS: NavItem[] = [
@@ -399,8 +476,351 @@ const UserManagement = ({ currentUser }: { currentUser: AppUser }) => {
   );
 };
 
-const AdminDashboard = ({ appUser, onLogout }: { appUser: AppUser; onLogout: () => void }) => {
-  const [activeTab, setActiveTab] = useState<'articles' | 'users'>('articles');
+const PageManagement = ({ config }: { config: SiteConfig }) => {
+  const [localConfig, setLocalConfig] = useState<SiteConfig>(config);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await setDoc(doc(db, 'site_config', 'home'), localConfig);
+      alert('页面配置已更新');
+      window.location.reload(); // 刷新以应用更改
+    } catch (error) {
+      console.error('Error saving site config:', error);
+      alert('保存失败');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateHero = (field: keyof SiteConfig['hero'], value: string) => {
+    setLocalConfig({
+      ...localConfig,
+      hero: { ...localConfig.hero, [field]: value }
+    });
+  };
+
+  const updateIntro = (field: keyof SiteConfig['intro'], value: string) => {
+    setLocalConfig({
+      ...localConfig,
+      intro: { ...localConfig.intro, [field]: value }
+    });
+  };
+
+  const updateArrayItem = (section: 'advantages' | 'courses' | 'faculty' | 'campus' | 'achievements', index: number, field: string, value: string) => {
+    const newArray = [...(localConfig[section] as any[])];
+    newArray[index] = { ...newArray[index], [field]: value };
+    setLocalConfig({ ...localConfig, [section]: newArray });
+  };
+
+  return (
+    <div className="space-y-12 pb-24">
+      <div className="flex justify-between items-center bg-white p-6 rounded-3xl shadow-sm border border-gray-100 sticky top-24 z-30">
+        <div>
+          <h3 className="text-xl font-bold text-gray-900">页面内容管理</h3>
+          <p className="text-sm text-gray-500">修改首页各个板块的文字、图片和图标</p>
+        </div>
+        <button 
+          onClick={handleSave}
+          disabled={saving}
+          className="bg-red-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-red-700 transition-all flex items-center shadow-lg shadow-red-500/20 disabled:opacity-50"
+        >
+          <Save size={20} className="mr-2" /> {saving ? '保存中...' : '保存更改'}
+        </button>
+      </div>
+
+      {/* Hero Section */}
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+        <h4 className="text-lg font-bold mb-6 flex items-center text-red-600">
+          <Layout className="mr-2" size={20} /> 首屏 (Hero Section)
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">主标题 (大字)</label>
+            <input 
+              type="text"
+              value={localConfig.hero.title}
+              onChange={e => updateHero('title', e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">副标题 (校训)</label>
+            <input 
+              type="text"
+              value={localConfig.hero.subtitle}
+              onChange={e => updateHero('subtitle', e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">办学理念</label>
+            <input 
+              type="text"
+              value={localConfig.hero.description}
+              onChange={e => updateHero('description', e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">背景图片 URL</label>
+            <input 
+              type="text"
+              value={localConfig.hero.bgImage}
+              onChange={e => updateHero('bgImage', e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 outline-none"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Intro Section */}
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+        <h4 className="text-lg font-bold mb-6 flex items-center text-red-600">
+          <Info className="mr-2" size={20} /> 关于我们 (Intro)
+        </h4>
+        <div className="grid grid-cols-1 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">标题</label>
+            <input 
+              type="text"
+              value={localConfig.intro.title}
+              onChange={e => updateIntro('title', e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">描述内容</label>
+            <textarea 
+              value={localConfig.intro.content}
+              onChange={e => updateIntro('content', e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 outline-none h-32"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">展示图片 URL</label>
+            <input 
+              type="text"
+              value={localConfig.intro.image}
+              onChange={e => updateIntro('image', e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 outline-none"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Advantages Section */}
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+        <h4 className="text-lg font-bold mb-6 flex items-center text-red-600">
+          <Zap className="mr-2" size={20} /> 办学优势 (Advantages)
+        </h4>
+        <div className="space-y-8">
+          {localConfig.advantages.map((item, idx) => (
+            <div key={idx} className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">标题</label>
+                  <input 
+                    type="text"
+                    value={item.title}
+                    onChange={e => updateArrayItem('advantages', idx, 'title', e.target.value)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">图标 (Lucide 名称)</label>
+                  <input 
+                    type="text"
+                    value={item.icon}
+                    onChange={e => updateArrayItem('advantages', idx, 'icon', e.target.value)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 outline-none"
+                  />
+                </div>
+                <div className="md:col-span-3">
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">描述</label>
+                  <input 
+                    type="text"
+                    value={item.desc}
+                    onChange={e => updateArrayItem('advantages', idx, 'desc', e.target.value)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Courses Section */}
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+        <h4 className="text-lg font-bold mb-6 flex items-center text-red-600">
+          <BookOpen className="mr-2" size={20} /> 特色课程 (Courses)
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {localConfig.courses.map((item, idx) => (
+            <div key={idx} className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">课程名称</label>
+                  <input 
+                    type="text"
+                    value={item.title}
+                    onChange={e => updateArrayItem('courses', idx, 'title', e.target.value)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">描述</label>
+                  <textarea 
+                    value={item.category}
+                    onChange={e => updateArrayItem('courses', idx, 'category', e.target.value)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 outline-none h-20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">图片 URL</label>
+                  <input 
+                    type="text"
+                    value={item.img}
+                    onChange={e => updateArrayItem('courses', idx, 'img', e.target.value)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Faculty Section */}
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+        <h4 className="text-lg font-bold mb-6 flex items-center text-red-600">
+          <Users className="mr-2" size={20} /> 师资力量 (Faculty)
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {localConfig.faculty.map((item, idx) => (
+            <div key={idx} className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+              <div className="space-y-3">
+                <div className="w-20 h-20 mx-auto rounded-full overflow-hidden border-2 border-white shadow-sm">
+                  <img src={item.img} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">姓名</label>
+                  <input 
+                    type="text"
+                    value={item.name}
+                    onChange={e => updateArrayItem('faculty', idx, 'name', e.target.value)}
+                    className="w-full px-3 py-1 rounded-lg border border-gray-200 text-sm outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">职位</label>
+                  <input 
+                    type="text"
+                    value={item.role}
+                    onChange={e => updateArrayItem('faculty', idx, 'role', e.target.value)}
+                    className="w-full px-3 py-1 rounded-lg border border-gray-200 text-sm outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">头像 URL</label>
+                  <input 
+                    type="text"
+                    value={item.img}
+                    onChange={e => updateArrayItem('faculty', idx, 'img', e.target.value)}
+                    className="w-full px-3 py-1 rounded-lg border border-gray-200 text-xs outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Campus Section */}
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+        <h4 className="text-lg font-bold mb-6 flex items-center text-red-600">
+          <Camera className="mr-2" size={20} /> 校园环境 (Campus)
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {localConfig.campus.map((item, idx) => (
+            <div key={idx} className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+              <div className="space-y-3">
+                <div className="aspect-video rounded-xl overflow-hidden">
+                  <img src={item.img} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">名称</label>
+                  <input 
+                    type="text"
+                    value={item.title}
+                    onChange={e => updateArrayItem('campus', idx, 'title', e.target.value)}
+                    className="w-full px-3 py-1 rounded-lg border border-gray-200 text-sm outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">图片 URL</label>
+                  <input 
+                    type="text"
+                    value={item.img}
+                    onChange={e => updateArrayItem('campus', idx, 'img', e.target.value)}
+                    className="w-full px-3 py-1 rounded-lg border border-gray-200 text-xs outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Achievements Section */}
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+        <h4 className="text-lg font-bold mb-6 flex items-center text-red-600">
+          <Trophy className="mr-2" size={20} /> 学子成就 (Achievements)
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {localConfig.achievements.map((item, idx) => (
+            <div key={idx} className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">数字 (如 98%)</label>
+                  <input 
+                    type="text"
+                    value={item.number}
+                    onChange={e => updateArrayItem('achievements', idx, 'number', e.target.value)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">标签</label>
+                  <input 
+                    type="text"
+                    value={item.label}
+                    onChange={e => updateArrayItem('achievements', idx, 'label', e.target.value)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">图标 (Lucide 名称)</label>
+                  <input 
+                    type="text"
+                    value={item.icon}
+                    onChange={e => updateArrayItem('achievements', idx, 'icon', e.target.value)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AdminDashboard = ({ appUser, onLogout, siteConfig }: { appUser: AppUser; onLogout: () => void; siteConfig: SiteConfig }) => {
+  const [activeTab, setActiveTab] = useState<'articles' | 'users' | 'page'>('articles');
   const [articles, setArticles] = useState<Article[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [currentArticle, setCurrentArticle] = useState<Partial<Article>>({
@@ -608,6 +1028,17 @@ const AdminDashboard = ({ appUser, onLogout }: { appUser: AppUser; onLogout: () 
               用户管理
             </button>
           )}
+          {appUser.role === 'admin' && (
+            <button 
+              onClick={() => setActiveTab('page')}
+              className={cn(
+                "px-6 py-2 rounded-xl text-sm font-bold transition-all",
+                activeTab === 'page' ? "bg-white text-red-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+              )}
+            >
+              页面管理
+            </button>
+          )}
         </div>
 
         {activeTab === 'articles' ? (
@@ -662,8 +1093,10 @@ const AdminDashboard = ({ appUser, onLogout }: { appUser: AppUser; onLogout: () 
             )
           )}
         </div>
-        ) : (
+        ) : activeTab === 'users' ? (
           <UserManagement currentUser={appUser} />
+        ) : (
+          <PageManagement config={siteConfig} />
         )}
       </div>
     </div>
@@ -792,6 +1225,7 @@ export default function App() {
   const [view, setView] = useState<'home' | 'admin' | 'article'>('home');
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [appUser, setAppUser] = useState<AppUser | null>(null);
+  const [siteConfig, setSiteConfig] = useState<SiteConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
   
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
@@ -816,7 +1250,20 @@ export default function App() {
         }
       }
 
-      // 2. Bootstrap default admin if no users exist
+      // 2. Fetch Site Config
+      try {
+        const configDoc = await getDoc(doc(db, 'site_config', 'home'));
+        if (configDoc.exists()) {
+          setSiteConfig(configDoc.data() as SiteConfig);
+        } else {
+          // Initialize default config if not exists
+          await setDoc(doc(db, 'site_config', 'home'), DEFAULT_CONFIG);
+        }
+      } catch (error) {
+        console.error('Config fetch error:', error);
+      }
+
+      // 3. Bootstrap default admin if no users exist
       try {
         const userSnapshot = await getDocs(query(collection(db, 'users'), limit(1)));
         if (userSnapshot.empty) {
@@ -902,41 +1349,104 @@ export default function App() {
             exit={{ opacity: 0 }}
           >
             {/* Hero Section */}
-            <section className="relative h-screen flex items-center justify-center overflow-hidden">
+            <section className="relative h-screen flex items-center justify-center overflow-hidden bg-black">
               <div className="absolute inset-0 z-0">
-                <img 
-                  src="https://picsum.photos/seed/school-campus/1920/1080" 
-                  alt="Campus" 
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+                <motion.div 
+                  initial={{ scale: 1.2, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 2 }}
+                  className="w-full h-full"
+                >
+                  <img 
+                    src={siteConfig.hero.bgImage} 
+                    alt="Campus" 
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                </motion.div>
+                <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/80" />
+                <div className="absolute inset-0 bg-red-900/10 mix-blend-overlay" />
               </div>
               
-              <div className="relative z-10 text-center px-4 max-w-5xl mx-auto">
+              <div className="relative z-10 text-center px-4 w-full">
                 <motion.div
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 1 }}
+                  className="max-w-7xl mx-auto"
                 >
-                  <h1 className="text-5xl md:text-7xl font-extrabold text-white mb-6 tracking-tight">
-                    {SCHOOL_NAME}
-                  </h1>
-                  <p className="text-xl md:text-2xl text-white/90 mb-10 font-light tracking-widest">
-                    {SCHOOL_SLOGAN}
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                    <button 
-                      onClick={() => document.getElementById('intro')?.scrollIntoView({ behavior: 'smooth' })}
-                      className="bg-red-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-red-700 transition-all shadow-xl hover:shadow-red-600/40 flex items-center justify-center group"
+                  <div className="flex flex-col items-center">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: 100 }}
+                      transition={{ delay: 0.5, duration: 1 }}
+                      className="h-px bg-red-500 mb-8"
+                    />
+                    
+                    <h1 className="relative">
+                      <motion.span
+                        initial={{ opacity: 0, y: 50 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3, duration: 0.8 }}
+                        className="block text-5xl md:text-[8vw] font-black text-white leading-none tracking-tighter uppercase italic"
+                        style={{ textShadow: '0 20px 50px rgba(0,0,0,0.5)' }}
+                      >
+                        {siteConfig.hero.title}
+                      </motion.span>
+                    </h1>
+
+                    {/* 办学理念 - Philosophy */}
+                    <motion.div
+                      initial={{ opacity: 0, x: -30 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.5, duration: 0.8 }}
+                      className="mt-6 flex items-center justify-center space-x-4"
                     >
-                      了解更多 <ChevronRight className="ml-2 group-hover:translate-x-1 transition-transform" />
-                    </button>
-                    <button className="bg-white/10 backdrop-blur-md text-white border border-white/30 px-8 py-4 rounded-full text-lg font-semibold hover:bg-white/20 transition-all">
-                      校园全景
-                    </button>
+                      <div className="h-[1px] w-8 bg-red-500" />
+                      <span className="text-white/80 text-lg md:text-xl font-medium tracking-[0.3em] uppercase">
+                        {siteConfig.hero.description}
+                      </span>
+                      <div className="h-[1px] w-8 bg-red-500" />
+                    </motion.div>
+
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.8, duration: 0.8 }}
+                      className="mt-12 flex flex-col items-center"
+                    >
+                      <p className="text-xl md:text-3xl text-white/60 font-light tracking-[0.5em] mb-12 uppercase">
+                        {siteConfig.hero.subtitle}
+                      </p>
+                      
+                      <div className="flex flex-wrap gap-6 justify-center">
+                        <button 
+                          onClick={() => document.getElementById('intro')?.scrollIntoView({ behavior: 'smooth' })}
+                          className="px-10 py-5 bg-red-600 text-white rounded-full text-lg font-bold hover:bg-red-700 transition-all shadow-2xl hover:shadow-red-600/50 flex items-center group overflow-hidden relative"
+                        >
+                          <span className="relative z-10 flex items-center">
+                            探索正兴 <ChevronRight className="ml-2 group-hover:translate-x-1 transition-transform" />
+                          </span>
+                          <motion.div 
+                            className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"
+                          />
+                        </button>
+                        <button className="px-10 py-5 bg-white/5 backdrop-blur-xl text-white border border-white/20 rounded-full text-lg font-bold hover:bg-white/10 transition-all">
+                          在线咨询
+                        </button>
+                      </div>
+                    </motion.div>
                   </div>
                 </motion.div>
+              </div>
+
+              <div className="absolute left-10 bottom-10 hidden lg:block">
+                <div className="flex flex-col space-y-4">
+                  <div className="w-px h-20 bg-white/20" />
+                  <span className="text-white/30 text-[10px] uppercase tracking-[0.5em] vertical-text rotate-180" style={{ writingMode: 'vertical-rl' }}>
+                    ESTABLISHED 2004
+                  </span>
+                </div>
               </div>
 
               <motion.div 
@@ -945,64 +1455,61 @@ export default function App() {
                 className="absolute bottom-10 left-1/2 -translate-x-1/2 text-white/50"
               >
                 <div className="w-6 h-10 border-2 border-white/30 rounded-full flex justify-center p-1">
-                  <div className="w-1 h-2 bg-white rounded-full" />
+                  <motion.div 
+                    animate={{ y: [0, 12, 0] }}
+                    transition={{ repeat: Infinity, duration: 1.5 }}
+                    className="w-1 h-2 bg-red-500 rounded-full" 
+                  />
                 </div>
               </motion.div>
             </section>
 
             {/* 学校介绍 - Intro */}
-            <section id="intro" className="py-24 bg-white">
+            <section id="intro" className="py-24 bg-white overflow-hidden">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
                   <motion.div
                     initial={{ opacity: 0, x: -50 }}
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true }}
+                  >
+                    <span className="text-red-600 font-bold tracking-widest uppercase text-sm mb-4 block">
+                      {siteConfig.intro.tag}
+                    </span>
+                    <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-8 leading-tight">
+                      {siteConfig.intro.title}
+                    </h2>
+                    <p className="text-lg text-gray-600 mb-10 leading-relaxed">
+                      {siteConfig.intro.content}
+                    </p>
+                    <div className="flex items-center space-x-8">
+                      <div>
+                        <span className="block text-4xl font-bold text-red-600">{siteConfig.intro.years}</span>
+                        <span className="text-sm text-gray-500 uppercase tracking-wider">办学经验</span>
+                      </div>
+                      <div className="w-px h-12 bg-gray-200" />
+                      <button className="text-gray-900 font-bold flex items-center group">
+                        查看详细介绍 <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      </button>
+                    </div>
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }}
                     className="relative"
                   >
-                    <div className="aspect-video rounded-3xl overflow-hidden shadow-2xl">
+                    <div className="aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl">
                       <img 
-                        src="https://picsum.photos/seed/school-building/800/600" 
+                        src={siteConfig.intro.image} 
                         alt="School Building" 
                         className="w-full h-full object-cover"
                         referrerPolicy="no-referrer"
                       />
                     </div>
-                    <div className="absolute -bottom-8 -right-8 bg-red-600 text-white p-8 rounded-3xl shadow-xl hidden md:block">
-                      <p className="text-4xl font-bold mb-1">20+</p>
-                      <p className="text-sm opacity-80 uppercase tracking-wider">载办学经验</p>
-                    </div>
-                  </motion.div>
-                  
-                  <motion.div
-                    initial={{ opacity: 0, x: 50 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true }}
-                  >
-                    <h3 className="text-red-600 font-semibold tracking-widest uppercase mb-4">关于我们</h3>
-                    <h2 className="text-4xl font-bold text-gray-900 mb-6">正德兴学，追求卓越</h2>
-                    <p className="text-gray-600 text-lg leading-relaxed mb-8">
-                      漳州正兴学校坐落于美丽的九龙江畔，是一所集小学、初中、高中为一体的现代化全日制寄宿学校。学校秉承“正德兴学”的办学理念，致力于培养具有家国情怀、国际视野、创新精神的时代新人。
-                    </p>
-                    <div className="grid grid-cols-2 gap-6">
-                      <div className="flex items-start space-x-4">
-                        <div className="bg-red-50 p-3 rounded-xl text-red-600">
-                          <Building2 size={24} />
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-gray-900">现代化校园</h4>
-                          <p className="text-sm text-gray-500">占地面积广，设施先进</p>
-                        </div>
-                      </div>
-                      <div className="flex items-start space-x-4">
-                        <div className="bg-red-50 p-3 rounded-xl text-red-600">
-                          <Heart size={24} />
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-gray-900">人文关怀</h4>
-                          <p className="text-sm text-gray-500">关注每一位学子的成长</p>
-                        </div>
-                      </div>
+                    <div className="absolute -bottom-8 -left-8 bg-red-600 text-white p-8 rounded-2xl shadow-xl hidden md:block">
+                      <Quote className="w-8 h-8 mb-4 opacity-50" />
+                      <p className="text-xl font-serif italic">教育是点燃火焰，<br />而非灌满容器。</p>
                     </div>
                   </motion.div>
                 </div>
@@ -1018,29 +1525,25 @@ export default function App() {
                 />
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  {[
-                    { icon: <Award />, title: "卓越教学质量", desc: "连续多年中高考成绩名列前茅，升学率稳步提升。" },
-                    { icon: <Users />, title: "精英管理团队", desc: "由资深教育专家领衔，实行精细化、人性化管理。" },
-                    { icon: <Globe />, title: "国际化视野", desc: "与多所海外名校建立合作，提供多元化升学通道。" },
-                    { icon: <Star />, title: "个性化培养", desc: "关注学生特长，实行小班化教学，因材施教。" },
-                    { icon: <Building2 />, title: "一流硬件设施", desc: "智慧教室、多功能实验室、标准化运动场一应俱全。" },
-                    { icon: <Heart />, title: "全方位服务", desc: "星级食宿条件，专业心理咨询，保障学生身心健康。" },
-                  ].map((item, index) => (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, y: 20 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: index * 0.1 }}
-                      className="bg-white p-8 rounded-3xl shadow-sm hover:shadow-xl transition-all group border border-gray-100"
-                    >
-                      <div className="w-14 h-14 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-red-600 group-hover:text-white transition-colors">
-                        {React.cloneElement(item.icon as any, { size: 28 })}
-                      </div>
-                      <h3 className="text-xl font-bold mb-4 text-gray-900">{item.title}</h3>
-                      <p className="text-gray-600 leading-relaxed">{item.desc}</p>
-                    </motion.div>
-                  ))}
+                  {siteConfig.advantages.map((adv, index) => {
+                    const IconComponent = (LucideIcons as any)[adv.icon] || LucideIcons.Star;
+                    return (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: index * 0.1 }}
+                        className="bg-white p-10 rounded-3xl shadow-sm hover:shadow-xl transition-all border border-gray-100 group"
+                      >
+                        <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-8 group-hover:bg-red-600 transition-colors">
+                          <IconComponent className="w-8 h-8 text-red-600 group-hover:text-white transition-colors" />
+                        </div>
+                        <h3 className="text-2xl font-bold text-gray-900 mb-4">{adv.title}</h3>
+                        <p className="text-gray-600 leading-relaxed">{adv.desc}</p>
+                      </motion.div>
+                    );
+                  })}
                 </div>
               </div>
             </section>
@@ -1054,12 +1557,7 @@ export default function App() {
                 />
                 
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                  {[
-                    { title: "国学经典", category: "人文素养", img: "https://picsum.photos/seed/culture/400/500" },
-                    { title: "科创实验", category: "科技创新", img: "https://picsum.photos/seed/science/400/500" },
-                    { title: "艺术鉴赏", category: "美育教育", img: "https://picsum.photos/seed/art/400/500" },
-                    { title: "体育竞技", category: "身心健康", img: "https://picsum.photos/seed/sports/400/500" },
-                  ].map((course, index) => (
+                  {siteConfig.courses.map((course, index) => (
                     <motion.div
                       key={index}
                       initial={{ opacity: 0, scale: 0.95 }}
@@ -1095,12 +1593,7 @@ export default function App() {
                 />
                 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-                  {[
-                    { name: "张老师", title: "特级教师", role: "数学组组长", img: "https://picsum.photos/seed/teacher1/300/400" },
-                    { name: "李老师", title: "高级教师", role: "语文名师", img: "https://picsum.photos/seed/teacher2/300/400" },
-                    { name: "王老师", title: "骨干教师", role: "英语学科带头人", img: "https://picsum.photos/seed/teacher3/300/400" },
-                    { name: "赵老师", title: "博士教师", role: "物理竞赛教练", img: "https://picsum.photos/seed/teacher4/300/400" },
-                  ].map((teacher, index) => (
+                  {siteConfig.faculty.map((teacher, index) => (
                     <motion.div
                       key={index}
                       initial={{ opacity: 0, y: 30 }}
@@ -1136,53 +1629,24 @@ export default function App() {
                 />
                 
                 <div className="grid grid-cols-12 gap-4 h-[600px]">
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
-                    viewport={{ once: true }}
-                    className="col-span-12 md:col-span-8 rounded-3xl overflow-hidden relative group"
-                  >
-                    <img src="https://picsum.photos/seed/campus1/1200/800" alt="Campus 1" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" referrerPolicy="no-referrer" />
-                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                      <span className="text-white font-bold text-xl">教学大楼</span>
-                    </div>
-                  </motion.div>
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.1 }}
-                    className="col-span-6 md:col-span-4 rounded-3xl overflow-hidden relative group"
-                  >
-                    <img src="https://picsum.photos/seed/campus2/600/800" alt="Campus 2" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" referrerPolicy="no-referrer" />
-                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                      <span className="text-white font-bold text-xl">图书馆</span>
-                    </div>
-                  </motion.div>
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.2 }}
-                    className="col-span-6 md:col-span-4 rounded-3xl overflow-hidden relative group"
-                  >
-                    <img src="https://picsum.photos/seed/campus3/600/800" alt="Campus 3" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" referrerPolicy="no-referrer" />
-                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                      <span className="text-white font-bold text-xl">体育馆</span>
-                    </div>
-                  </motion.div>
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.3 }}
-                    className="col-span-12 md:col-span-8 rounded-3xl overflow-hidden relative group"
-                  >
-                    <img src="https://picsum.photos/seed/campus4/1200/800" alt="Campus 4" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" referrerPolicy="no-referrer" />
-                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                      <span className="text-white font-bold text-xl">学生公寓</span>
-                    </div>
-                  </motion.div>
+                  {siteConfig.campus.map((item, index) => (
+                    <motion.div 
+                      key={index}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      whileInView={{ opacity: 1, scale: 1 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: index * 0.1 }}
+                      className={clsx(
+                        "rounded-3xl overflow-hidden relative group",
+                        item.size === 'large' ? "col-span-12 md:col-span-8" : "col-span-6 md:col-span-4"
+                      )}
+                    >
+                      <img src={item.img} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" referrerPolicy="no-referrer" />
+                      <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                        <span className="text-white font-bold text-xl">{item.title}</span>
+                      </div>
+                    </motion.div>
+                  ))}
                 </div>
               </div>
             </section>
@@ -1203,26 +1667,25 @@ export default function App() {
                 />
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-                  {[
-                    { number: "98%", label: "本科升学率", icon: <GraduationCap /> },
-                    { number: "500+", label: "竞赛奖项", icon: <Trophy /> },
-                    { number: "100+", label: "名校录取通知", icon: <BookOpen /> },
-                  ].map((stat, index) => (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      whileInView={{ opacity: 1, scale: 1 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: index * 0.1 }}
-                      className="text-center"
-                    >
-                      <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-6 backdrop-blur-md">
-                        {React.cloneElement(stat.icon as any, { size: 36 })}
-                      </div>
-                      <div className="text-5xl font-black mb-2">{stat.number}</div>
-                      <div className="text-white/70 text-lg font-medium uppercase tracking-widest">{stat.label}</div>
-                    </motion.div>
-                  ))}
+                  {siteConfig.achievements.map((stat, index) => {
+                    const IconComponent = (LucideIcons as any)[stat.icon] || LucideIcons.Star;
+                    return (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        whileInView={{ opacity: 1, scale: 1 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: index * 0.1 }}
+                        className="text-center"
+                      >
+                        <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-6 backdrop-blur-md">
+                          <IconComponent size={36} />
+                        </div>
+                        <div className="text-5xl font-black mb-2">{stat.number}</div>
+                        <div className="text-white/70 text-lg font-medium uppercase tracking-widest">{stat.label}</div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
               </div>
             </section>
@@ -1237,7 +1700,7 @@ export default function App() {
             exit={{ opacity: 0 }}
           >
             {appUser ? (
-              <AdminDashboard appUser={appUser} onLogout={handleLogout} />
+              <AdminDashboard appUser={appUser} onLogout={handleLogout} siteConfig={siteConfig} />
             ) : (
               <div className="h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
                 <div className="bg-white p-12 rounded-3xl shadow-2xl text-center max-w-md w-full border border-gray-100">

@@ -57,7 +57,7 @@
         },
         "password": {
           "type": "string",
-          "description": "加密后的密码"
+          "description": "登录密码"
         },
         "displayName": {
           "type": "string",
@@ -75,6 +75,20 @@
         }
       },
       "required": ["username", "password", "role"]
+    },
+    "site_config": {
+      "title": "网站配置",
+      "description": "存储首页各板块的动态配置信息。",
+      "type": "object",
+      "properties": {
+        "hero": { "type": "object" },
+        "intro": { "type": "object" },
+        "advantages": { "type": "array" },
+        "courses": { "type": "array" },
+        "faculty": { "type": "array" },
+        "campus": { "type": "array" },
+        "achievements": { "type": "array" }
+      }
     }
   },
   "firestore": {
@@ -85,6 +99,10 @@
     "/users/{userId}": {
       "schema": "users",
       "description": "存储系统后台管理用户的集合"
+    },
+    "/site_config/{configId}": {
+      "schema": "site_config",
+      "description": "存储页面配置的集合"
     }
   }
 }
