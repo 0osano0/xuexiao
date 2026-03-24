@@ -35,7 +35,8 @@ import {
   Camera,
   ArrowRight,
   Quote,
-  Search
+  Search,
+  Sparkles
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { 
@@ -112,6 +113,15 @@ interface SiteConfig {
   faculty: { name: string; title: string; role: string; img: string }[];
   campus: { title: string; img: string; size: 'large' | 'small' }[];
   achievements: { number: string; label: string; icon: string }[];
+  footer: {
+    intro: string;
+    copyright: string;
+  };
+  contact: {
+    address: string;
+    phone: string;
+    email: string;
+  };
 }
 
 const DEFAULT_CONFIG: SiteConfig = {
@@ -158,7 +168,16 @@ const DEFAULT_CONFIG: SiteConfig = {
     { number: "98%", label: "本科升学率", icon: "GraduationCap" },
     { number: "500+", label: "竞赛奖项", icon: "Trophy" },
     { number: "100+", label: "名校录取通知", icon: "BookOpen" },
-  ]
+  ],
+  footer: {
+    intro: "漳州正兴学校是一所致力于卓越教育的现代化学校。我们以“正德兴学”为核心，为每一位学子提供最优质的成长平台。",
+    copyright: `© ${new Date().getFullYear()} 漳州正兴学校. All Rights Reserved.`
+  },
+  contact: {
+    address: "福建省漳州市芗城区正兴大道1号",
+    phone: "0596-1234567",
+    email: "contact@zxschool.com"
+  }
 };
 
 // --- Constants ---
@@ -325,7 +344,9 @@ const SectionHeading = ({ title, subtitle, light = false }: { title: string; sub
 const UserManagement = ({ currentUser }: { currentUser: AppUser }) => {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [isAdding, setIsAdding] = useState(false);
+  const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [newUser, setNewUser] = useState({ username: '', password: '', displayName: '', role: 'editor' as 'admin' | 'editor' });
+  const [editPassword, setEditPassword] = useState('');
 
   useEffect(() => {
     const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
@@ -343,13 +364,10 @@ const UserManagement = ({ currentUser }: { currentUser: AppUser }) => {
     }
 
     try {
-      // Note: In a real app, we'd use a cloud function to create the auth user.
-      // For this demo, we'll store the password in Firestore (NOT SECURE for production, but fits "local management" request).
-      // Ideally, we'd use Firebase Auth's createUserWithEmailAndPassword.
       const userRef = doc(collection(db, 'users'));
       await setDoc(userRef, {
         username: newUser.username,
-        password: newUser.password, // In real apps, hash this!
+        password: newUser.password,
         displayName: newUser.displayName,
         role: newUser.role,
         createdAt: Timestamp.now()
@@ -359,6 +377,21 @@ const UserManagement = ({ currentUser }: { currentUser: AppUser }) => {
     } catch (error) {
       console.error('Error adding user:', error);
       alert('添加失败');
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    if (!editingUser || !editPassword) return;
+    try {
+      await updateDoc(doc(db, 'users', editingUser.uid), {
+        password: editPassword
+      });
+      setEditingUser(null);
+      setEditPassword('');
+      alert('密码修改成功');
+    } catch (error) {
+      console.error('Error updating password:', error);
+      alert('修改失败');
     }
   };
 
@@ -424,6 +457,25 @@ const UserManagement = ({ currentUser }: { currentUser: AppUser }) => {
         </div>
       )}
 
+      {editingUser && (
+        <div className="bg-white p-6 rounded-3xl border border-blue-100 shadow-sm space-y-4">
+          <h4 className="font-bold text-gray-900">修改用户密码: {editingUser.displayName}</h4>
+          <div className="flex flex-col md:flex-row gap-4">
+            <input 
+              type="password" 
+              placeholder="新密码" 
+              value={editPassword}
+              onChange={e => setEditPassword(e.target.value)}
+              className="flex-grow px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+            <div className="flex space-x-3">
+              <button onClick={() => setEditingUser(null)} className="px-4 py-2 text-gray-500 hover:text-gray-700">取消</button>
+              <button onClick={handleUpdatePassword} className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">确认修改</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
         <table className="w-full text-left">
           <thead className="bg-gray-50 border-b border-gray-100">
@@ -460,12 +512,24 @@ const UserManagement = ({ currentUser }: { currentUser: AppUser }) => {
                   {u.createdAt?.toDate().toLocaleDateString()}
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <button 
-                    onClick={() => handleDeleteUser(u.uid)}
-                    className="p-2 text-gray-400 hover:text-red-600 transition-colors"
-                  >
-                    <Trash2 size={18} />
-                  </button>
+                  <div className="flex justify-end space-x-2">
+                    <button 
+                      onClick={() => {
+                        setEditingUser(u);
+                        setEditPassword('');
+                      }}
+                      className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                      title="修改密码"
+                    >
+                      <Lock size={18} />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteUser(u.uid)}
+                      className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -815,6 +879,81 @@ const PageManagement = ({ config }: { config: SiteConfig }) => {
           ))}
         </div>
       </div>
+
+      {/* Footer & Contact Section */}
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+        <h4 className="text-lg font-bold mb-6 flex items-center text-red-600">
+          <Info className="mr-2" size={20} /> 底部信息与联系方式 (Footer & Contact)
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="space-y-6">
+            <h5 className="font-bold text-gray-900 border-b pb-2">底部介绍</h5>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">学校简介 (底部显示)</label>
+              <textarea 
+                rows={4}
+                value={localConfig.footer.intro}
+                onChange={e => setLocalConfig({
+                  ...localConfig,
+                  footer: { ...localConfig.footer, intro: e.target.value }
+                })}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">版权信息</label>
+              <input 
+                type="text"
+                value={localConfig.footer.copyright}
+                onChange={e => setLocalConfig({
+                  ...localConfig,
+                  footer: { ...localConfig.footer, copyright: e.target.value }
+                })}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 outline-none"
+              />
+            </div>
+          </div>
+          <div className="space-y-6">
+            <h5 className="font-bold text-gray-900 border-b pb-2">联系方式</h5>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">学校地址</label>
+              <input 
+                type="text"
+                value={localConfig.contact.address}
+                onChange={e => setLocalConfig({
+                  ...localConfig,
+                  contact: { ...localConfig.contact, address: e.target.value }
+                })}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">联系电话</label>
+              <input 
+                type="text"
+                value={localConfig.contact.phone}
+                onChange={e => setLocalConfig({
+                  ...localConfig,
+                  contact: { ...localConfig.contact, phone: e.target.value }
+                })}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">电子邮箱</label>
+              <input 
+                type="text"
+                value={localConfig.contact.email}
+                onChange={e => setLocalConfig({
+                  ...localConfig,
+                  contact: { ...localConfig.contact, email: e.target.value }
+                })}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 outline-none"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
@@ -823,6 +962,7 @@ const AdminDashboard = ({ appUser, onLogout, siteConfig }: { appUser: AppUser; o
   const [activeTab, setActiveTab] = useState<'articles' | 'users' | 'page'>('articles');
   const [articles, setArticles] = useState<Article[]>([]);
   const [isEditing, setIsEditing] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [currentArticle, setCurrentArticle] = useState<Partial<Article>>({
     title: '',
     content: '',
@@ -840,6 +980,33 @@ const AdminDashboard = ({ appUser, onLogout, siteConfig }: { appUser: AppUser; o
     });
     return () => unsubscribe();
   }, []);
+
+  const handleGenerateArticles = async () => {
+    if (isGenerating) return;
+    setIsGenerating(true);
+    try {
+      const { generateArticles } = await import('./services/articleGenerator');
+      const newArticles = await generateArticles();
+      
+      const batch = newArticles.map((art: any) => {
+        return addDoc(collection(db, 'articles'), {
+          ...art,
+          author: 'AI 助手',
+          isPublished: true,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now()
+        });
+      });
+      
+      await Promise.all(batch);
+      alert('成功生成并发布 10 篇新闻文章！');
+    } catch (error) {
+      console.error('Error generating articles:', error);
+      alert('生成失败，请检查 API Key 配置');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!currentArticle.title || !currentArticle.content) {
@@ -988,15 +1155,24 @@ const AdminDashboard = ({ appUser, onLogout, siteConfig }: { appUser: AppUser; o
           </div>
           <div className="flex space-x-4">
             {activeTab === 'articles' && (
-              <button 
-                onClick={() => {
-                  setCurrentArticle({ title: '', content: '', summary: '', coverImage: '', category: '校园新闻', isPublished: false });
-                  setIsEditing(true);
-                }}
-                className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700 transition-all flex items-center shadow-lg shadow-red-500/20"
-              >
-                <Plus size={20} className="mr-2" /> 发布文章
-              </button>
+              <>
+                <button 
+                  onClick={handleGenerateArticles}
+                  disabled={isGenerating}
+                  className="bg-purple-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-700 transition-all flex items-center shadow-lg shadow-purple-500/20 disabled:opacity-50"
+                >
+                  <Sparkles size={20} className="mr-2" /> {isGenerating ? '正在生成...' : 'AI 生成 10 篇文章'}
+                </button>
+                <button 
+                  onClick={() => {
+                    setCurrentArticle({ title: '', content: '', summary: '', coverImage: '', category: '校园新闻', isPublished: false });
+                    setIsEditing(true);
+                  }}
+                  className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700 transition-all flex items-center shadow-lg shadow-red-500/20"
+                >
+                  <Plus size={20} className="mr-2" /> 发布文章
+                </button>
+              </>
             )}
             <button 
               onClick={onLogout}
@@ -1107,6 +1283,7 @@ const AdminDashboard = ({ appUser, onLogout, siteConfig }: { appUser: AppUser; o
 const NewsSection = ({ onArticleClick }: { onArticleClick: (article: Article) => void }) => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(9);
 
   useEffect(() => {
     const q = query(
@@ -1124,6 +1301,8 @@ const NewsSection = ({ onArticleClick }: { onArticleClick: (article: Article) =>
 
   if (loading) return <div className="py-24 text-center text-gray-400">加载中...</div>;
 
+  const displayedArticles = articles.slice(0, visibleCount);
+
   return (
     <section id="news" className="py-24 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1133,16 +1312,16 @@ const NewsSection = ({ onArticleClick }: { onArticleClick: (article: Article) =>
         />
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {articles.length === 0 ? (
+          {displayedArticles.length === 0 ? (
             <div className="col-span-3 text-center py-12 text-gray-400">暂无新闻动态</div>
           ) : (
-            articles.map((article, index) => (
+            displayedArticles.map((article, index) => (
               <motion.div
                 key={article.id}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
+                transition={{ delay: (index % 3) * 0.1 }}
                 onClick={() => onArticleClick(article)}
                 className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all group cursor-pointer border border-gray-100"
               >
@@ -1178,6 +1357,17 @@ const NewsSection = ({ onArticleClick }: { onArticleClick: (article: Article) =>
             ))
           )}
         </div>
+
+        {visibleCount < articles.length && (
+          <div className="mt-16 text-center">
+            <button 
+              onClick={() => setVisibleCount(prev => prev + 6)}
+              className="px-12 py-4 bg-white text-red-600 border-2 border-red-600 rounded-full font-bold hover:bg-red-600 hover:text-white transition-all shadow-lg shadow-red-500/10"
+            >
+              加载更多校园新闻
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -1516,6 +1706,12 @@ export default function App() {
               </div>
             </section>
 
+            {/* 校园新闻 - News */}
+            <NewsSection onArticleClick={(article) => {
+              setSelectedArticle(article);
+              setView('article');
+            }} />
+
             {/* 办学优势 - Advantages */}
             <section id="advantages" className="py-24 bg-gray-50">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1651,12 +1847,6 @@ export default function App() {
               </div>
             </section>
 
-            {/* 校园新闻 - News */}
-            <NewsSection onArticleClick={(article) => {
-              setSelectedArticle(article);
-              setView('article');
-            }} />
-
             {/* 学子成就 - Achievements */}
             <section id="achievements" className="py-24 bg-red-600 text-white">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1787,7 +1977,7 @@ export default function App() {
                 <span className="text-2xl font-bold tracking-tight">{SCHOOL_NAME}</span>
               </div>
               <p className="text-white/50 max-w-md mb-8 leading-relaxed">
-                漳州正兴学校是一所致力于卓越教育的现代化学校。我们以“正德兴学”为核心，为每一位学子提供最优质的成长平台。
+                {siteConfig.footer.intro}
               </p>
               <div className="flex space-x-4">
                 <div className="w-10 h-10 bg-white/5 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors cursor-pointer">
@@ -1804,13 +1994,13 @@ export default function App() {
             
             <div>
               <h4 className="text-lg font-bold mb-6">快速链接</h4>
-              <ul className="space-y-4 text-white/50">
+              <ul className="grid grid-cols-2 gap-4 text-white/50">
                 {NAV_ITEMS.map(item => (
                   <li key={item.id}>
                     <button onClick={() => {
                       setView('home');
                       setTimeout(() => document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth' }), 100);
-                    }} className="hover:text-red-500 transition-colors">
+                    }} className="hover:text-red-500 transition-colors text-left">
                       {item.label}
                     </button>
                   </li>
@@ -1823,22 +2013,22 @@ export default function App() {
               <ul className="space-y-4 text-white/50">
                 <li className="flex items-start">
                   <MapPin size={18} className="mr-3 text-red-600 shrink-0 mt-1" />
-                  <span>福建省漳州市芗城区正兴大道1号</span>
+                  <span>{siteConfig.contact.address}</span>
                 </li>
                 <li className="flex items-center">
                   <Phone size={18} className="mr-3 text-red-600 shrink-0" />
-                  <span>0596-1234567</span>
+                  <span>{siteConfig.contact.phone}</span>
                 </li>
                 <li className="flex items-center">
                   <Mail size={18} className="mr-3 text-red-600 shrink-0" />
-                  <span>contact@zxschool.com</span>
+                  <span>{siteConfig.contact.email}</span>
                 </li>
               </ul>
             </div>
           </div>
           
           <div className="pt-12 border-t border-white/5 text-center text-white/30 text-sm">
-            <p>© {new Date().getFullYear()} {SCHOOL_NAME}. All Rights Reserved.</p>
+            <p>{siteConfig.footer.copyright}</p>
           </div>
         </div>
       </footer>
