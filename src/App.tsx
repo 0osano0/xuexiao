@@ -969,8 +969,17 @@ const AdminDashboard = ({ appUser, onLogout, siteConfig }: { appUser: AppUser; o
     summary: '',
     coverImage: '',
     category: '校园新闻',
-    isPublished: false
+    isPublished: false,
+    createdAt: Timestamp.now()
   });
+
+  const [publishDate, setPublishDate] = useState(new Date().toISOString().split('T')[0]);
+
+  useEffect(() => {
+    if (currentArticle.createdAt) {
+      setPublishDate(currentArticle.createdAt.toDate().toISOString().split('T')[0]);
+    }
+  }, [currentArticle.id]);
 
   useEffect(() => {
     const q = query(collection(db, 'articles'), orderBy('createdAt', 'desc'));
@@ -1000,9 +1009,14 @@ const AdminDashboard = ({ appUser, onLogout, siteConfig }: { appUser: AppUser; o
       
       await Promise.all(batch);
       alert('成功生成并发布 10 篇新闻文章！');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating articles:', error);
-      alert('生成失败，请检查 API Key 配置');
+      const msg = error?.message || '';
+      if (msg.includes('API_KEY_INVALID') || msg.includes('API key not found')) {
+        alert('生成失败：API Key 无效或未配置。请在 Vercel 环境变量中设置 GEMINI_API_KEY');
+      } else {
+        alert('生成失败，请检查网络或 API Key 配置');
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -1017,7 +1031,7 @@ const AdminDashboard = ({ appUser, onLogout, siteConfig }: { appUser: AppUser; o
     const data = {
       ...currentArticle,
       updatedAt: Timestamp.now(),
-      createdAt: currentArticle.createdAt || Timestamp.now(),
+      createdAt: Timestamp.fromDate(new Date(publishDate)),
       author: appUser.displayName
     };
 
@@ -1072,7 +1086,7 @@ const AdminDashboard = ({ appUser, onLogout, siteConfig }: { appUser: AppUser; o
                 />
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">分类</label>
                   <select 
@@ -1085,6 +1099,15 @@ const AdminDashboard = ({ appUser, onLogout, siteConfig }: { appUser: AppUser; o
                     <option>教学动态</option>
                     <option>学子风采</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">发布日期</label>
+                  <input 
+                    type="date"
+                    value={publishDate}
+                    onChange={(e) => setPublishDate(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 transition-all"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">封面图 URL</label>
@@ -1109,7 +1132,24 @@ const AdminDashboard = ({ appUser, onLogout, siteConfig }: { appUser: AppUser; o
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">正文内容 (支持 Markdown)</label>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium text-gray-700">正文内容 (支持 Markdown)</label>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      const url = window.prompt('请输入图片 URL:');
+                      if (url) {
+                        setCurrentArticle({
+                          ...currentArticle,
+                          content: (currentArticle.content || '') + `\n\n![图片](${url})\n`
+                        });
+                      }
+                    }}
+                    className="text-xs font-bold text-red-600 hover:text-red-700 flex items-center"
+                  >
+                    <Camera size={14} className="mr-1" /> 插入图片
+                  </button>
+                </div>
                 <textarea 
                   value={currentArticle.content}
                   onChange={(e) => setCurrentArticle({ ...currentArticle, content: e.target.value })}
