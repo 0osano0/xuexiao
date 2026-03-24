@@ -39,26 +39,15 @@ import {
   Sparkles
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
-import { 
-  collection, 
-  addDoc, 
-  getDocs, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  query, 
-  orderBy, 
-  onSnapshot,
-  Timestamp,
-  where,
-  getDoc,
-  setDoc,
-  limit
-} from 'firebase/firestore';
-import { db } from './firebase';
 import ReactMarkdown from 'react-markdown';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+
+// --- Mock Firebase Types for compatibility ---
+const Timestamp = {
+  now: () => new Date().toISOString(),
+  fromDate: (date: Date) => date.toISOString()
+};
 
 // --- Utils ---
 function cn(...inputs: ClassValue[]) {
@@ -79,8 +68,8 @@ interface Article {
   coverImage: string;
   author: string;
   category: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  createdAt: any;
+  updatedAt: any;
   isPublished: boolean;
 }
 
@@ -90,7 +79,7 @@ interface AppUser {
   displayName: string;
   password?: string;
   role: 'admin' | 'editor';
-  createdAt: Timestamp;
+  createdAt: any;
 }
 
 interface SiteConfig {
@@ -348,13 +337,18 @@ const UserManagement = ({ currentUser }: { currentUser: AppUser }) => {
   const [newUser, setNewUser] = useState({ username: '', password: '', displayName: '', role: 'editor' as 'admin' | 'editor' });
   const [editPassword, setEditPassword] = useState('');
 
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch('/api/users');
+      const data = await res.json();
+      setUsers(data);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
   useEffect(() => {
-    const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as AppUser));
-      setUsers(docs);
-    });
-    return () => unsubscribe();
+    fetchUsers();
   }, []);
 
   const handleAddUser = async () => {
@@ -364,16 +358,14 @@ const UserManagement = ({ currentUser }: { currentUser: AppUser }) => {
     }
 
     try {
-      const userRef = doc(collection(db, 'users'));
-      await setDoc(userRef, {
-        username: newUser.username,
-        password: newUser.password,
-        displayName: newUser.displayName,
-        role: newUser.role,
-        createdAt: Timestamp.now()
+      await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newUser)
       });
       setIsAdding(false);
       setNewUser({ username: '', password: '', displayName: '', role: 'editor' });
+      fetchUsers();
     } catch (error) {
       console.error('Error adding user:', error);
       alert('添加失败');
@@ -383,12 +375,15 @@ const UserManagement = ({ currentUser }: { currentUser: AppUser }) => {
   const handleUpdatePassword = async () => {
     if (!editingUser || !editPassword) return;
     try {
-      await updateDoc(doc(db, 'users', editingUser.uid), {
-        password: editPassword
+      await fetch(`/api/users/${editingUser.uid}/password`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: editPassword })
       });
       setEditingUser(null);
       setEditPassword('');
       alert('密码修改成功');
+      fetchUsers();
     } catch (error) {
       console.error('Error updating password:', error);
       alert('修改失败');
@@ -401,7 +396,12 @@ const UserManagement = ({ currentUser }: { currentUser: AppUser }) => {
       return;
     }
     if (window.confirm('确定删除该用户吗？')) {
-      await deleteDoc(doc(db, 'users', uid));
+      try {
+        await fetch(`/api/users/${uid}`, { method: 'DELETE' });
+        fetchUsers();
+      } catch (error) {
+        console.error('Error deleting user:', error);
+      }
     }
   };
 
@@ -547,9 +547,13 @@ const PageManagement = ({ config }: { config: SiteConfig }) => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await setDoc(doc(db, 'site_config', 'home'), localConfig);
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(localConfig)
+      });
       alert('页面配置已更新');
-      window.location.reload(); // 刷新以应用更改
+      window.location.reload();
     } catch (error) {
       console.error('Error saving site config:', error);
       alert('保存失败');
@@ -970,53 +974,45 @@ const AdminDashboard = ({ appUser, onLogout, siteConfig }: { appUser: AppUser; o
     coverImage: '',
     category: '校园新闻',
     isPublished: false,
-    createdAt: Timestamp.now()
+    createdAt: new Date().toISOString()
   });
 
   const [publishDate, setPublishDate] = useState(new Date().toISOString().split('T')[0]);
 
-  useEffect(() => {
-    if (currentArticle.createdAt) {
-      setPublishDate(currentArticle.createdAt.toDate().toISOString().split('T')[0]);
+  const fetchArticles = async () => {
+    try {
+      const res = await fetch('/api/articles');
+      const data = await res.json();
+      setArticles(data);
+    } catch (error) {
+      console.error('Error fetching articles:', error);
     }
-  }, [currentArticle.id]);
+  };
 
   useEffect(() => {
-    const q = query(collection(db, 'articles'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Article));
-      setArticles(docs);
-    });
-    return () => unsubscribe();
+    fetchArticles();
   }, []);
+
+  useEffect(() => {
+    if (currentArticle.createdAt) {
+      const date = typeof currentArticle.createdAt === 'string' 
+        ? new Date(currentArticle.createdAt) 
+        : currentArticle.createdAt.toDate();
+      setPublishDate(date.toISOString().split('T')[0]);
+    }
+  }, [currentArticle.id]);
 
   const handleGenerateArticles = async () => {
     if (isGenerating) return;
     setIsGenerating(true);
     try {
-      const { generateArticles } = await import('./services/articleGenerator');
-      const newArticles = await generateArticles();
-      
-      const batch = newArticles.map((art: any) => {
-        return addDoc(collection(db, 'articles'), {
-          ...art,
-          author: 'AI 助手',
-          isPublished: true,
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now()
-        });
-      });
-      
-      await Promise.all(batch);
+      const res = await fetch('/api/generate-articles', { method: 'POST' });
+      if (!res.ok) throw new Error('Generation failed');
       alert('成功生成并发布 10 篇新闻文章！');
+      fetchArticles();
     } catch (error: any) {
       console.error('Error generating articles:', error);
-      const msg = error?.message || '';
-      if (msg.includes('API_KEY_INVALID') || msg.includes('API key not found')) {
-        alert('生成失败：API Key 无效或未配置。请在 Vercel 环境变量中设置 GEMINI_API_KEY');
-      } else {
-        alert('生成失败，请检查网络或 API Key 配置');
-      }
+      alert('生成失败，请检查服务器配置');
     } finally {
       setIsGenerating(false);
     }
@@ -1030,29 +1026,38 @@ const AdminDashboard = ({ appUser, onLogout, siteConfig }: { appUser: AppUser; o
 
     const data = {
       ...currentArticle,
-      updatedAt: Timestamp.now(),
-      createdAt: Timestamp.fromDate(new Date(publishDate)),
+      createdAt: new Date(publishDate).toISOString(),
       author: appUser.displayName
     };
 
     try {
       if (currentArticle.id) {
-        await updateDoc(doc(db, 'articles', currentArticle.id), data);
+        await fetch(`/api/articles/${currentArticle.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
       } else {
-        await addDoc(collection(db, 'articles'), data);
+        await fetch('/api/articles', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
       }
       setIsEditing(false);
       setCurrentArticle({ title: '', content: '', summary: '', coverImage: '', category: '校园新闻', isPublished: false });
+      fetchArticles();
     } catch (error) {
       console.error('Error saving article:', error);
-      alert('保存失败，请检查权限');
+      alert('保存失败');
     }
   };
 
   const handleDelete = async (id: string) => {
     if (window.confirm('确定要删除这篇文章吗？')) {
       try {
-        await deleteDoc(doc(db, 'articles', id));
+        await fetch(`/api/articles/${id}`, { method: 'DELETE' });
+        fetchArticles();
       } catch (error) {
         console.error('Error deleting article:', error);
         alert('删除失败');
@@ -1326,17 +1331,17 @@ const NewsSection = ({ onArticleClick }: { onArticleClick: (article: Article) =>
   const [visibleCount, setVisibleCount] = useState(9);
 
   useEffect(() => {
-    const q = query(
-      collection(db, 'articles'), 
-      where('isPublished', '==', true),
-      orderBy('createdAt', 'desc')
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Article));
-      setArticles(docs);
-      setLoading(false);
-    });
-    return () => unsubscribe();
+    const fetchArticles = async () => {
+      try {
+        const res = await fetch('/api/articles');
+        const data = await res.json();
+        setArticles(data.filter((a: any) => a.isPublished));
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching articles:', error);
+      }
+    };
+    fetchArticles();
   }, []);
 
   if (loading) return <div className="py-24 text-center text-gray-400">加载中...</div>;
@@ -1466,60 +1471,41 @@ export default function App() {
     const initAuth = async () => {
       const timeoutId = setTimeout(() => {
         if (loading) {
-          setLoadError('连接数据库超时，请检查您的网络环境是否可以访问 Google 服务。');
+          setLoadError('连接服务器超时，请检查您的网络环境。');
           setLoading(false);
         }
-      }, 10000); // 10秒超时
+      }, 10000);
 
       try {
         // 1. Check local storage for session
         const savedUser = localStorage.getItem('zx_admin_session');
-        let sessionPromise = Promise.resolve();
         if (savedUser) {
           try {
             const userData = JSON.parse(savedUser);
-            sessionPromise = getDoc(doc(db, 'users', userData.uid)).then(userDoc => {
-              if (userDoc.exists()) {
-                setAppUser({ uid: userDoc.id, ...userDoc.data() } as AppUser);
-              } else {
-                localStorage.removeItem('zx_admin_session');
-              }
-            });
+            setAppUser(userData);
           } catch (e) {
             localStorage.removeItem('zx_admin_session');
           }
         }
 
         // 2. Fetch Site Config
-        const configPromise = getDoc(doc(db, 'site_config', 'home')).then(async (configDoc) => {
-          if (configDoc.exists()) {
-            setSiteConfig(configDoc.data() as SiteConfig);
-          } else {
-            await setDoc(doc(db, 'site_config', 'home'), DEFAULT_CONFIG);
-          }
-        });
+        const configRes = await fetch('/api/config');
+        if (configRes.ok) {
+          const configData = await configRes.json();
+          setSiteConfig(configData);
+        } else {
+          // Initialize default config if not exists
+          await fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(DEFAULT_CONFIG)
+          });
+        }
 
-        // 3. Bootstrap check
-        const bootstrapPromise = getDocs(query(collection(db, 'users'), limit(1))).then(async (userSnapshot) => {
-          if (userSnapshot.empty) {
-            const adminRef = doc(collection(db, 'users'));
-            await setDoc(adminRef, {
-              username: 'admin',
-              password: 'admin',
-              displayName: '系统管理员',
-              role: 'admin',
-              createdAt: Timestamp.now()
-            });
-          }
-        });
-
-        await Promise.all([sessionPromise, configPromise, bootstrapPromise]);
         clearTimeout(timeoutId);
       } catch (error: any) {
         console.error('Initialization error:', error);
-        if (error.message?.includes('offline')) {
-          setLoadError('数据库连接失败：客户端已离线。');
-        }
+        setLoadError('服务器连接失败。');
       } finally {
         setLoading(false);
       }
@@ -1542,19 +1528,14 @@ export default function App() {
     
     setLoginLoading(true);
     try {
-      // Custom login: Query Firestore for matching username and password
-      const q = query(
-        collection(db, 'users'), 
-        where('username', '==', loginForm.username),
-        where('password', '==', loginForm.password),
-        limit(1)
-      );
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loginForm)
+      });
       
-      const querySnapshot = await getDocs(q);
-      
-      if (!querySnapshot.empty) {
-        const userDoc = querySnapshot.docs[0];
-        const userData = { uid: userDoc.id, ...userDoc.data() } as AppUser;
+      if (res.ok) {
+        const userData = await res.json();
         setAppUser(userData);
         localStorage.setItem('zx_admin_session', JSON.stringify(userData));
       } else {
@@ -1562,7 +1543,7 @@ export default function App() {
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      alert('登录失败: ' + (error.message || '系统错误'));
+      alert('登录失败');
     } finally {
       setLoginLoading(false);
     }
