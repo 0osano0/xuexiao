@@ -118,13 +118,13 @@ const DEFAULT_CONFIG: SiteConfig = {
     title: "漳州正兴学校",
     subtitle: "人正则立，品正则兴",
     description: "正德兴学 · 追求卓越 · 育才报国",
-    bgImage: "https://picsum.photos/seed/school-campus/1920/1080"
+    bgImage: "https://dummyimage.com/1920x1080/cc0000/ffffff&text=正兴学校"
   },
   intro: {
     tag: "关于我们",
     title: "正德兴学，追求卓越",
     content: "漳州正兴学校坐落于美丽的九龙江畔，是一所集小学、初中、高中为一体的现代化全日制寄宿学校。学校秉承“正德兴学”的办学理念，致力于培养具有家国情怀、国际视野、创新精神的时代新人。",
-    image: "https://picsum.photos/seed/school-building/800/600",
+    image: "https://dummyimage.com/800x600/cc0000/ffffff&text=校园风光",
     years: "20+"
   },
   advantages: [
@@ -136,22 +136,22 @@ const DEFAULT_CONFIG: SiteConfig = {
     { icon: "Heart", title: "全方位服务", desc: "星级食宿条件，专业心理咨询，保障学生身心健康。" },
   ],
   courses: [
-    { title: "国学经典", category: "人文素养", img: "https://picsum.photos/seed/culture/400/500" },
-    { title: "科创实验", category: "科技创新", img: "https://picsum.photos/seed/science/400/500" },
-    { title: "艺术鉴赏", category: "美育教育", img: "https://picsum.photos/seed/art/400/500" },
-    { title: "体育竞技", category: "身心健康", img: "https://picsum.photos/seed/sports/400/500" },
+    { title: "国学经典", category: "人文素养", img: "https://dummyimage.com/400x500/cc0000/ffffff&text=国学" },
+    { title: "科创实验", category: "科技创新", img: "https://dummyimage.com/400x500/cc0000/ffffff&text=科创" },
+    { title: "艺术鉴赏", category: "美育教育", img: "https://dummyimage.com/400x500/cc0000/ffffff&text=艺术" },
+    { title: "体育竞技", category: "身心健康", img: "https://dummyimage.com/400x500/cc0000/ffffff&text=体育" },
   ],
   faculty: [
-    { name: "张老师", title: "特级教师", role: "数学组组长", img: "https://picsum.photos/seed/teacher1/300/400" },
-    { name: "李老师", title: "高级教师", role: "语文名师", img: "https://picsum.photos/seed/teacher2/300/400" },
-    { name: "王老师", title: "骨干教师", role: "英语学科带头人", img: "https://picsum.photos/seed/teacher3/300/400" },
-    { name: "赵老师", title: "博士教师", role: "物理竞赛教练", img: "https://picsum.photos/seed/teacher4/300/400" },
+    { name: "张老师", title: "特级教师", role: "数学组组长", img: "https://dummyimage.com/300x400/cc0000/ffffff&text=名师" },
+    { name: "李老师", title: "高级教师", role: "语文名师", img: "https://dummyimage.com/300x400/cc0000/ffffff&text=名师" },
+    { name: "王老师", title: "骨干教师", role: "英语学科带头人", img: "https://dummyimage.com/300x400/cc0000/ffffff&text=名师" },
+    { name: "赵老师", title: "博士教师", role: "物理竞赛教练", img: "https://dummyimage.com/300x400/cc0000/ffffff&text=名师" },
   ],
   campus: [
-    { title: "教学大楼", img: "https://picsum.photos/seed/campus1/1200/800", size: 'large' },
-    { title: "图书馆", img: "https://picsum.photos/seed/campus2/600/800", size: 'small' },
-    { title: "体育馆", img: "https://picsum.photos/seed/campus3/600/800", size: 'small' },
-    { title: "学生公寓", img: "https://picsum.photos/seed/campus4/1200/800", size: 'large' },
+    { title: "教学大楼", img: "https://dummyimage.com/1200x800/cc0000/ffffff&text=教学楼", size: 'large' },
+    { title: "图书馆", img: "https://dummyimage.com/600x800/cc0000/ffffff&text=图书馆", size: 'small' },
+    { title: "体育馆", img: "https://dummyimage.com/600x800/cc0000/ffffff&text=体育馆", size: 'small' },
+    { title: "学生公寓", img: "https://dummyimage.com/1200x800/cc0000/ffffff&text=公寓", size: 'large' },
   ],
   achievements: [
     { number: "98%", label: "本科升学率", icon: "GraduationCap" },
@@ -1469,12 +1469,13 @@ export default function App() {
 
   useEffect(() => {
     const initAuth = async () => {
-      const timeoutId = setTimeout(() => {
-        if (loading) {
-          setLoadError('连接服务器超时，请检查您的网络环境。');
-          setLoading(false);
-        }
-      }, 10000);
+      console.log('Initializing application...');
+      
+      // Safety timeout: force loading to false after 5 seconds no matter what
+      const safetyTimeout = setTimeout(() => {
+        console.log('Safety timeout reached, forcing entry.');
+        setLoading(false);
+      }, 5000);
 
       try {
         // 1. Check local storage for session
@@ -1488,24 +1489,35 @@ export default function App() {
           }
         }
 
-        // 2. Fetch Site Config
-        const configRes = await fetch('/api/config');
-        if (configRes.ok) {
-          const configData = await configRes.json();
-          setSiteConfig(configData);
-        } else {
-          // Initialize default config if not exists
-          await fetch('/api/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(DEFAULT_CONFIG)
-          });
+        // 2. Fetch Site Config with a short timeout
+        console.log('Fetching site config...');
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), 3000);
+        
+        try {
+          const configRes = await fetch('/api/config', { signal: controller.signal });
+          clearTimeout(id);
+          
+          if (configRes.ok) {
+            const configData = await configRes.json();
+            setSiteConfig(configData);
+            console.log('Config loaded successfully.');
+          } else {
+            console.warn('Config not found, using defaults.');
+            // Try to initialize default config (don't wait for it)
+            fetch('/api/config', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(DEFAULT_CONFIG)
+            }).catch(err => console.error('Failed to init config:', err));
+          }
+        } catch (err) {
+          console.warn('Config fetch failed or timed out, using defaults.');
         }
 
-        clearTimeout(timeoutId);
+        clearTimeout(safetyTimeout);
       } catch (error: any) {
         console.error('Initialization error:', error);
-        setLoadError('服务器连接失败。');
       } finally {
         setLoading(false);
       }
@@ -1560,6 +1572,12 @@ export default function App() {
       <div className="h-screen flex flex-col items-center justify-center bg-white">
         <div className="w-16 h-16 border-4 border-red-100 border-t-red-600 rounded-full animate-spin mb-4"></div>
         <div className="text-red-600 font-bold">正兴学校官网加载中...</div>
+        <button 
+          onClick={() => setLoading(false)}
+          className="mt-8 text-gray-400 text-xs underline hover:text-red-600 transition-colors"
+        >
+          如果加载时间过长，请点击此处直接进入
+        </button>
         {loadError && (
           <div className="mt-4 px-6 py-3 bg-red-50 text-red-600 text-sm rounded-xl max-w-md text-center">
             {loadError}
