@@ -1457,71 +1457,81 @@ export default function App() {
   const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginLoading, setLoginLoading] = useState(false);
 
   useEffect(() => {
     const initAuth = async () => {
-      // 1. Check local storage for session
-      const savedUser = localStorage.getItem('zx_admin_session');
-      if (savedUser) {
-        try {
-          const userData = JSON.parse(savedUser);
-          // Verify user still exists in DB
-          const userDoc = await getDoc(doc(db, 'users', userData.uid));
-          if (userDoc.exists()) {
-            setAppUser({ uid: userDoc.id, ...userDoc.data() } as AppUser);
-          } else {
+      const timeoutId = setTimeout(() => {
+        if (loading) {
+          setLoadError('连接数据库超时，请检查您的网络环境是否可以访问 Google 服务。');
+          setLoading(false);
+        }
+      }, 10000); // 10秒超时
+
+      try {
+        // 1. Check local storage for session
+        const savedUser = localStorage.getItem('zx_admin_session');
+        let sessionPromise = Promise.resolve();
+        if (savedUser) {
+          try {
+            const userData = JSON.parse(savedUser);
+            sessionPromise = getDoc(doc(db, 'users', userData.uid)).then(userDoc => {
+              if (userDoc.exists()) {
+                setAppUser({ uid: userDoc.id, ...userDoc.data() } as AppUser);
+              } else {
+                localStorage.removeItem('zx_admin_session');
+              }
+            });
+          } catch (e) {
             localStorage.removeItem('zx_admin_session');
           }
-        } catch (e) {
-          localStorage.removeItem('zx_admin_session');
         }
-      }
 
-      // 2. Fetch Site Config
-      try {
-        const configDoc = await getDoc(doc(db, 'site_config', 'home'));
-        if (configDoc.exists()) {
-          setSiteConfig(configDoc.data() as SiteConfig);
-        } else {
-          // Initialize default config if not exists
-          await setDoc(doc(db, 'site_config', 'home'), DEFAULT_CONFIG);
+        // 2. Fetch Site Config
+        const configPromise = getDoc(doc(db, 'site_config', 'home')).then(async (configDoc) => {
+          if (configDoc.exists()) {
+            setSiteConfig(configDoc.data() as SiteConfig);
+          } else {
+            await setDoc(doc(db, 'site_config', 'home'), DEFAULT_CONFIG);
+          }
+        });
+
+        // 3. Bootstrap check
+        const bootstrapPromise = getDocs(query(collection(db, 'users'), limit(1))).then(async (userSnapshot) => {
+          if (userSnapshot.empty) {
+            const adminRef = doc(collection(db, 'users'));
+            await setDoc(adminRef, {
+              username: 'admin',
+              password: 'admin',
+              displayName: '系统管理员',
+              role: 'admin',
+              createdAt: Timestamp.now()
+            });
+          }
+        });
+
+        await Promise.all([sessionPromise, configPromise, bootstrapPromise]);
+        clearTimeout(timeoutId);
+      } catch (error: any) {
+        console.error('Initialization error:', error);
+        if (error.message?.includes('offline')) {
+          setLoadError('数据库连接失败：客户端已离线。');
         }
-      } catch (error) {
-        console.error('Config fetch error:', error);
+      } finally {
+        setLoading(false);
       }
-
-      // 3. Bootstrap default admin if no users exist
-      try {
-        const userSnapshot = await getDocs(query(collection(db, 'users'), limit(1)));
-        if (userSnapshot.empty) {
-          console.log('Initializing default admin account...');
-          const adminRef = doc(collection(db, 'users'));
-          const defaultAdmin = {
-            username: 'admin',
-            password: 'admin',
-            displayName: '系统管理员',
-            role: 'admin',
-            createdAt: Timestamp.now()
-          };
-          await setDoc(adminRef, defaultAdmin);
-        }
-      } catch (error) {
-        console.error('Bootstrap error:', error);
-      }
-
-      setLoading(false);
     };
 
     initAuth();
-
     document.title = '漳州正兴学校';
 
     // Hidden admin route check
     const path = window.location.pathname;
-    if (path === '/guanli' || path === '/guanli.php') {
+    const hash = window.location.hash;
+    if (path === '/guanli' || path === '/guanli.php' || hash === '#guanli' || hash === '#/guanli') {
       setView('admin');
     }
   }, []);
@@ -1564,7 +1574,19 @@ export default function App() {
     setView('home');
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center text-red-600 font-bold">正兴学校官网加载中...</div>;
+  if (loading) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-white">
+        <div className="w-16 h-16 border-4 border-red-100 border-t-red-600 rounded-full animate-spin mb-4"></div>
+        <div className="text-red-600 font-bold">正兴学校官网加载中...</div>
+        {loadError && (
+          <div className="mt-4 px-6 py-3 bg-red-50 text-red-600 text-sm rounded-xl max-w-md text-center">
+            {loadError}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white font-sans text-gray-900 selection:bg-red-100 selection:text-red-600">
